@@ -1,7 +1,7 @@
 Package: com.nazar0vsky.m3uczytnik
 Name: iSat
 Depends: firmware (>= 6.0)
-Version: 1.7.0
+Version: 1.7.1
 Architecture: iphoneos-arm
 Description: iSat - czytnik playlist M3U/M3U8 (IPTV): lista kanalow, szukanie, ulubione, odtwarzanie HLS
 Maintainer: nazar0vsky-slam0

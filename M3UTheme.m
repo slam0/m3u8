@@ -11,6 +11,7 @@ UIColor *M3UAccentColor(void) { return [UIColor colorWithRed:0.38f green:0.63f b
 
 @implementation M3UBackdrop {
     UIImageView *_pic;
+    NSString *_name;
 }
 
 - (id)initWithFrame:(CGRect)frame
@@ -21,18 +22,28 @@ UIColor *M3UAccentColor(void) { return [UIColor colorWithRed:0.38f green:0.63f b
     self.userInteractionEnabled = NO;
     self.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     _pic = [[UIImageView alloc] initWithImage:img(@"bg_main")];
-    _pic.contentMode = UIViewContentModeScaleToFill;
+    _pic.contentMode = UIViewContentModeScaleToFill;     /* ramkę liczymy sami, w layoutSubviews */
     [self addSubview:_pic];
     return self;
 }
 
+/* Obraz dobrany do rozmiaru i układu ekranu (pion/poziom, iPad/telefon), żeby nie był rozciągany. */
 - (void)layoutSubviews
 {
     [super layoutSubviews];
-    CGFloat w = self.bounds.size.width;
-    CGFloat h = w * 1136.0f / 640.0f;
-    if (h < self.bounds.size.height) h = self.bounds.size.height;
-    _pic.frame = CGRectMake(0, 0, w, h);
+    CGFloat bw = self.bounds.size.width, bh = self.bounds.size.height;
+    BOOL landscape = bw > bh;
+    BOOL pad = UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad;
+    NSString *name = pad ? (landscape ? @"bg_pad_l" : @"bg_pad_p") : (landscape ? @"bg_phone_l" : @"bg_main");
+    if (![_name isEqualToString:name]) {
+        _name = name;
+        _pic.image = img(name);
+    }
+    CGSize is = _pic.image.size;
+    if (is.width < 1 || is.height < 1) return;
+    CGFloat k = MAX(bw / is.width, bh / is.height);            /* wypełnij cały widok, bez zniekształceń */
+    CGFloat w = is.width * k, h = is.height * k;
+    _pic.frame = CGRectMake((bw - w) / 2.0f, 0, w, h);          /* przypięty do góry, wyśrodkowany */
 }
 
 @end

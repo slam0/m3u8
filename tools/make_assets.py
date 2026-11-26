@@ -72,33 +72,44 @@ def linen():
 
 
 
-def main_bg():
-    """Tło ekranów: gładki niebieski gradient, poświata u góry i błysk w kształcie uśmiechu. Bez tekstury."""
-    W, H = 640, 1136
+def main_bg(W=640, H=1136, save=True):
+    """Tło ekranów: gładki niebieski gradient, poświata u góry i błysk w kształcie uśmiechu. Bez tekstury.
+    Wymiary dobieramy do ekranu (pionowy/poziomy, telefon/iPad), więc obraz nie jest rozciągany."""
+    k = H / 1136.0                      # skala pionowa (wzorzec: 640x1136)
+    s = min(W, H) / 640.0               # skala grubości linii
     yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
     t = yy / (H - 1)
     top = np.array([58, 128, 232], np.float32); mid = np.array([24, 78, 186], np.float32); bot = np.array([8, 36, 108], np.float32)
     a = np.clip(t / 0.55, 0, 1)[..., None]; b = np.clip((t - 0.55) / 0.45, 0, 1)[..., None]
     img = np.where(t[..., None] < 0.55, top * (1 - a) + mid * a, mid * (1 - b) + bot * b)
-    r = np.sqrt(((xx - W / 2) / (W * 0.75)) ** 2 + ((yy + 80) / 620) ** 2)
+    r = np.sqrt(((xx - W / 2) / (W * 0.75)) ** 2 + ((yy + 80 * k) / (620 * k)) ** 2)
     img = img + (np.clip(1 - r, 0, 1) ** 1.6)[..., None] * np.array([46, 62, 70], np.float32)
     img = np.clip(img, 0, 255)
-    cx, cy, rx, ry = W / 2, -520.0, 980.0, 960.0
+    cx, cy, rx, ry = W / 2, -520.0 * k, 980.0 / 640.0 * W, 960.0 * k
     d = (np.sqrt(((xx - cx) / rx) ** 2 + ((yy - cy) / ry) ** 2) - 1.0) * ry
-    band = np.clip(1 - np.clip(d / 26.0, 0, 1), 0, 1)
-    gloss = band * (0.10 + 0.16 * np.clip(1 - yy / 470.0, 0, 1))
+    band = np.clip(1 - np.clip(d / (26.0 * s), 0, 1), 0, 1)
+    gloss = band * (0.10 + 0.16 * np.clip(1 - yy / (470.0 * k), 0, 1))
     img = img + gloss[..., None] * (255 - img)
     prof = np.exp(-((xx - W / 2) / (W * 0.46)) ** 2)
-    line = np.exp(-(d / 1.6) ** 2) * prof * 0.95
-    line2 = np.exp(-((d + 9) / 1.2) ** 2) * prof * 0.30
-    halo = np.exp(-(d / 14.0) ** 2) * prof * 0.16
+    line = np.exp(-(d / (1.6 * s)) ** 2) * prof * 0.95
+    line2 = np.exp(-((d + 9 * s) / (1.2 * s)) ** 2) * prof * 0.30
+    halo = np.exp(-(d / (14.0 * s)) ** 2) * prof * 0.16
     img = img + np.clip(line + line2 + halo, 0, 1)[..., None] * (255 - img)
     vr = np.sqrt(((xx - W / 2) / (W * 0.8)) ** 2 + ((yy - H * 0.45) / (H * 0.8)) ** 2)
     img = img * (1 - 0.30 * np.clip(vr - 0.55, 0, 1) ** 1.3)[..., None]
     im = Image.fromarray(np.clip(img, 0, 255).astype(np.uint8), 'RGB')
-    im.save(os.path.join(OUT, 'bg_main@2x.png'))
-    im.resize((W // 2, H // 2), Image.LANCZOS).save(os.path.join(OUT, 'bg_main.png'))
+    if save:
+        im.save(os.path.join(OUT, 'bg_main@2x.png'))
+        im.resize((W // 2, H // 2), Image.LANCZOS).save(os.path.join(OUT, 'bg_main.png'))
     return im
+
+
+def sized_backgrounds():
+    """Osobne tła dla iPada (pion i poziom) i dla telefonu w poziomie: @2x oraz @1x."""
+    for name, w1, h1 in (('bg_pad_p', 768, 1024), ('bg_pad_l', 1024, 768), ('bg_phone_l', 568, 320)):
+        im = main_bg(w1 * 2, h1 * 2, save=False)
+        im.save(os.path.join(OUT, name + '@2x.png'))
+        im.resize((w1, h1), Image.LANCZOS).save(os.path.join(OUT, name + '.png'))
 
 
 def nav_bar():
@@ -374,14 +385,12 @@ def rail_glyphs():
 def ipad_icons_and_launch(icon):
     for name, sz in (('Icon-72.png', 72), ('Icon-72@2x.png', 144), ('Icon-Small-50.png', 50), ('Icon-Small-50@2x.png', 100)):
         icon.resize((sz, sz), Image.LANCZOS).save(os.path.join(OUT, name))
-    bgm = Image.open(os.path.join(OUT, 'bg_main@2x.png')).convert('RGB')
     nav = Image.open(os.path.join(OUT, 'nav_bar@2x.png')).convert('RGBA')
     for w, h, name in ((768, 1024, 'Default-Portrait~ipad.png'), (1536, 2048, 'Default-Portrait@2x~ipad.png'),
                        (1024, 768, 'Default-Landscape~ipad.png'), (2048, 1536, 'Default-Landscape@2x~ipad.png')):
         scale = 2 if '@2x' in name else 1
-        bh = int(bgm.height * w / bgm.width)
-        im = bgm.resize((w, max(bh, h)), Image.LANCZOS).crop((0, 0, w, h)).convert('RGBA')
-        im.alpha_composite(nav.resize((w, nav.height * scale // 2 * 1), Image.LANCZOS), (0, 0))
+        im = main_bg(w, h, save=False).convert('RGBA')
+        im.alpha_composite(nav.resize((w, nav.height * scale // 2), Image.LANCZOS), (0, 0))
         side = 128 * scale
         ic = icon.resize((side, side), Image.LANCZOS).convert('RGBA')
         m = Image.new('L', (side, side), 0)
@@ -402,5 +411,5 @@ if __name__ == '__main__':
     stretch_row('cell_sel', (66, 134, 236), (30, 84, 190), (160, 204, 255), (12, 38, 98), alpha=0.92)
     buttons(); tile_card(); icons_bar(); setup_assets()
     icons_and_launch(icon_1024())
-    ipad_icons_and_launch(icon_1024()); rail_glyphs()
+    sized_backgrounds(); ipad_icons_and_launch(icon_1024()); rail_glyphs()
     print('gotowe:', sorted(os.listdir(OUT)))
