@@ -48,19 +48,33 @@ void M3UFetch(NSString *url, void (^done)(NSData *data, NSString *error))
         done(nil, @"Adres musi zaczynać się od http:// lub https://");
         return;
     }
+    /* Klasy sieciowe bierzemy po nazwie w czasie działania: SDK 9.3 wpisuje je do CFNetwork,
+     * a w iOS 6 są w Foundation, więc bezpośrednie odwołanie wyrzucałoby aplikację od razu po starcie. */
+    Class reqClass = NSClassFromString(@"NSMutableURLRequest");
+    Class connClass = NSClassFromString(@"NSURLConnection");
+    Class httpClass = NSClassFromString(@"NSHTTPURLResponse");
+    if (!reqClass || !connClass || !httpClass) {
+        done(nil, @"Ten system nie ma potrzebnych funkcji sieciowych.");
+        return;
+    }
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:u
-                                                           cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
-                                                       timeoutInterval:30.0];
+        NSMutableURLRequest *req = [reqClass requestWithURL:u
+                                                cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
+                                            timeoutInterval:30.0];
         [req setValue:@"Mozilla/5.0 (iPhone; CPU iPhone OS 6_0 like Mac OS X) AppleWebKit/536.26" forHTTPHeaderField:@"User-Agent"];
-        NSHTTPURLResponse *resp = nil;
+        NSURLResponse *resp = nil;
         NSError *err = nil;
-        NSData *data = [NSURLConnection sendSynchronousRequest:req returningResponse:&resp error:&err];
+        NSData *data = [connClass sendSynchronousRequest:req returningResponse:&resp error:&err];
+        NSInteger code = [resp isKindOfClass:httpClass] ? [(NSHTTPURLResponse *)resp statusCode] : 0;
         NSString *msg = nil;
         if (!data) {
-            msg = [NSString stringWithFormat:@"Nie udało się pobrać listy: %@", [err localizedDescription] ?: @"brak połączenia"];
-        } else if ([resp isKindOfClass:[NSHTTPURLResponse class]] && [resp statusCode] >= 400) {
-            msg = [NSString stringWithFormat:@"Serwer zwrócił błąd %d", (int)[resp statusCode]];
+            if ([[err domain] isEqualToString:@"NSURLErrorDomain"] && [err code] <= -1200 && [err code] >= -1206) {
+                msg = @"Telefon nie mógł nawiązać bezpiecznego połączenia (HTTPS). Spróbuj adresu z http:// albo zainstaluj poprawkę SSL/TLS z Cydii i sprawdź datę w telefonie.";
+            } else {
+                msg = [NSString stringWithFormat:@"Nie udało się pobrać listy: %@", [err localizedDescription] ?: @"brak połączenia"];
+            }
+        } else if (code >= 400) {
+            msg = [NSString stringWithFormat:@"Serwer zwrócił błąd %d", (int)code];
             data = nil;
         } else if ([data length] == 0) {
             msg = @"Lista jest pusta";
