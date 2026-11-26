@@ -5,7 +5,6 @@
 #import "M3UTheme.h"
 #import "M3UTiles.h"
 #import "M3UDiag.h"
-#import "M3UEpg.h"
 #import <MediaPlayer/MediaPlayer.h>
 #import "M3ULocalization.h"
 
@@ -31,7 +30,6 @@ static const CGFloat kGridMonogram = 76.0f;
 @property (nonatomic) CGFloat gridWidth;
 @property (nonatomic, strong) NSArray *catNames;      /* wszystkie grupy playlisty (nie znikają przy szukaniu) */
 @property (nonatomic, strong) NSArray *catRows;
-@property (nonatomic, strong) NSTimer *epgTimer;
 @property (nonatomic, assign) BOOL categoryMode;    /* pokazujemy listę kategorii, nie kanały */
 @property (nonatomic, assign) BOOL presetEntries;    /* kanały podane z góry (kategoria / wszystkie) */
 @property (nonatomic, assign) BOOL groupLocked;      /* jedna kategoria: nagłówki zbędne */
@@ -157,7 +155,6 @@ M3U_ROTATE_ANY
 
     NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
     [nc addObserver:self selector:@selector(logoLoaded) name:M3ULogoDidLoad object:nil];
-    [nc addObserver:self selector:@selector(epgUpdated) name:M3UEpgDidUpdate object:nil];
     [nc addObserver:self selector:@selector(keyboardChanged:) name:UIKeyboardWillShowNotification object:nil];
     [nc addObserver:self selector:@selector(keyboardChanged:) name:UIKeyboardWillHideNotification object:nil];
 
@@ -172,7 +169,7 @@ M3U_ROTATE_ANY
     int cols = w >= 900.0f ? 5 : (w >= 600.0f ? 4 : (w >= 400.0f ? 3 : 2));
     CGFloat gap = 10.0f;
     CGFloat tw = (CGFloat)(int)((w - gap * (cols + 1)) / cols);
-    fl.itemSize = CGSizeMake(tw, 164.0f);
+    fl.itemSize = CGSizeMake(tw, 150.0f);
 }
 
 - (void)viewDidLayoutSubviews
@@ -188,35 +185,9 @@ M3U_ROTATE_ANY
     [self layoutMessage];
 }
 
-/* Program kanału: "Teraz: ..." i postęp (0..1); nil, gdy program wyłączony albo kanału nie ma w programie. */
-- (NSString *)programLine:(M3UEntry *)e progress:(float *)progress
-{
-    if (!M3UEpgEnabled()) return nil;
-    NSDictionary *ep = M3UEpgFor(e.name);
-    NSString *now = [ep objectForKey:@"now"];
-    if (!now) return nil;
-    double s = [[ep objectForKey:@"start"] doubleValue], t = [[ep objectForKey:@"end"] doubleValue];
-    double cur = [[NSDate date] timeIntervalSince1970];
-    if (progress) *progress = t > s ? (float)((cur - s) / (t - s)) : 0.0f;
-    return [NSString stringWithFormat:L(@"Teraz: %@"), now];
-}
-
-- (void)epgUpdated { [self reloadContent]; }
-
-- (void)epgTick { if (M3UEpgEnabled() && self.view.window) [self reloadContent]; }
-
-- (void)viewWillDisappear:(BOOL)animated
-{
-    [super viewWillDisappear:animated];
-    [self.epgTimer invalidate];
-    self.epgTimer = nil;
-}
-
 - (void)viewWillAppear:(BOOL)animated
 {
     [super viewWillAppear:animated];
-    [self.epgTimer invalidate];
-    self.epgTimer = [NSTimer scheduledTimerWithTimeInterval:60.0 target:self selector:@selector(epgTick) userInfo:nil repeats:YES];
     BOOL grid = [[NSUserDefaults standardUserDefaults] boolForKey:kLayoutKey];      /* mógł się zmienić w Ustawieniach */
     if (grid != self.gridMode) { self.gridMode = grid; [self applyLayoutMode]; [self updateNavItems]; }
     if (self.favoritesMode) {
@@ -629,26 +600,6 @@ M3U_ROTATE_ANY
     BOOL fav = M3UIsFavorite(e.url);
     cell.textLabel.text = fav ? [@"★ " stringByAppendingString:e.name] : e.name;
     cell.detailTextLabel.text = (self.found || self.favoritesMode) && [e.group length] ? e.group : nil;
-    float pr = 0;
-    NSString *line = [self programLine:e progress:&pr];
-    UIView *track = [cell.contentView viewWithTag:77];
-    if (!track) {
-        track = [[UIView alloc] initWithFrame:CGRectMake(66, 51, tv.bounds.size.width - 66 - 40, 3)];
-        track.tag = 77;
-        track.autoresizingMask = UIViewAutoresizingFlexibleWidth;
-        track.backgroundColor = [UIColor colorWithWhite:1.0f alpha:0.22f];
-        UIView *fill = [[UIView alloc] initWithFrame:CGRectZero];
-        fill.tag = 78;
-        fill.backgroundColor = M3UAccentColor();
-        [track addSubview:fill];
-        [cell.contentView addSubview:track];
-    }
-    track.hidden = (line == nil);
-    if (line) {
-        cell.detailTextLabel.text = line;
-        UIView *fill = [track viewWithTag:78];
-        fill.frame = CGRectMake(0, 0, (CGFloat)(int)(track.bounds.size.width * MIN(1.0f, MAX(0.0f, pr))), 3);
-    }
     cell.accessoryType = UITableViewCellAccessoryDetailDisclosureButton;
     return cell;
 }
@@ -680,9 +631,6 @@ M3U_ROTATE_ANY
     M3UTileCell *cell = [cv dequeueReusableCellWithReuseIdentifier:@"tile" forIndexPath:ip];
     M3UEntry *e = [self entryAtSection:ip.section row:ip.item];
     [cell setTitle:e.name plate:[self tileFor:e side:kGridTile] favorite:M3UIsFavorite(e.url)];
-    float pr = 0;
-    NSString *line = [self programLine:e progress:&pr];
-    [cell setProgram:line progress:pr];
     return cell;
 }
 
@@ -745,17 +693,9 @@ M3U_ROTATE_ANY
     } else if (i == 1) {
         [UIPasteboard generalPasteboard].string = e.url;
     } else if (i == 2) {
-        NSString *prog = @"";
-        NSDictionary *ep = M3UEpgEnabled() ? M3UEpgFor(e.name) : nil;
-        if ([ep objectForKey:@"now"])
-            prog = [prog stringByAppendingFormat:@"%@ %@–%@: %@\n", L(@"Teraz"), M3UEpgClock([[ep objectForKey:@"start"] doubleValue]), M3UEpgClock([[ep objectForKey:@"end"] doubleValue]), [ep objectForKey:@"now"]];
-        if ([ep objectForKey:@"next"])
-            prog = [prog stringByAppendingFormat:@"%@ %@–%@: %@\n", L(@"Potem"), M3UEpgClock([[ep objectForKey:@"nextStart"] doubleValue]), M3UEpgClock([[ep objectForKey:@"nextEnd"] doubleValue]), [ep objectForKey:@"next"]];
-        if ([prog length]) prog = [prog stringByAppendingString:@"\n"];
         NSString *msg = [NSString stringWithFormat:L(@"Grupa: %@\n\nAdres:\n%@\n\nLogo:\n%@\n%@"),
                          [e.group length] ? e.group : L(@"brak"), e.url,
                          [e.logo length] ? e.logo : L(@"brak"), M3ULogoStatus(e.logo)];
-        msg = [prog stringByAppendingString:msg];
         [[[UIAlertView alloc] initWithTitle:e.name message:msg delegate:nil cancelButtonTitle:@"OK" otherButtonTitles:nil] show];
     }
 }

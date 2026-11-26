@@ -8,7 +8,6 @@
 #import "M3URailController.h"
 #import "M3USettingsController.h"
 #import "M3ULocalization.h"
-#import "M3UEpg.h"
 
 @interface AppDelegate () <M3USetupDelegate>
 @property (nonatomic, strong) UINavigationController *nav;
@@ -20,7 +19,7 @@
 {
     M3UDiagInstall();
     NSString *crash = M3UDiagCrashReportIfAny();
-    M3UBreadcrumb(@"start aplikacji 1.9.0");
+    M3UBreadcrumb(@"start aplikacji 1.8.0");
     M3UDiagMarkRunning(YES);
     M3UThemeApply();
     [application setStatusBarStyle:UIStatusBarStyleBlackOpaque];
@@ -67,7 +66,7 @@
 
 - (void)applicationDidEnterBackground:(UIApplication *)application { M3UDiagMarkRunning(NO); }
 - (void)applicationWillTerminate:(UIApplication *)application { M3UDiagMarkRunning(NO); }
-- (void)applicationDidBecomeActive:(UIApplication *)application { M3UDiagMarkRunning(YES); M3UEpgRefresh(NO); }
+- (void)applicationDidBecomeActive:(UIApplication *)application { M3UDiagMarkRunning(YES); }
 
 - (void)setupFinished:(M3USetupController *)c playlist:(NSDictionary *)playlist
 {

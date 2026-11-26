@@ -1,14 +1,10 @@
 #import "M3USettingsController.h"
 #import "M3ULocalization.h"
 #import "M3ULogos.h"
-#import "M3UEpg.h"
 #import "M3UTheme.h"
 #import "AppDelegate.h"
 
 static NSString *const kLayoutKey = @"layout_grid";
-
-@interface M3USettingsController () <UIAlertViewDelegate>
-@end
 
 @implementation M3USettingsController
 
@@ -26,23 +22,19 @@ M3U_ROTATE_ANY
     [super viewDidLoad];
     M3UStyleTable(self.tableView);
     self.tableView.rowHeight = 50.0f;
-    [[NSNotificationCenter defaultCenter] addObserver:self.tableView selector:@selector(reloadData) name:M3UEpgDidUpdate object:nil];
 }
 
-- (void)dealloc { [[NSNotificationCenter defaultCenter] removeObserver:self.tableView]; }
-
-/* sekcje: 0 język, 1 program TV, 2 wygląd, 3 dane, 4 o aplikacji */
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return 5; }
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return 4; }
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s
 {
-    static const int rows[5] = { 3, 4, 1, 2, 1 };
+    static const int rows[4] = { 3, 1, 2, 1 };
     return rows[s];
 }
 
 - (UIView *)tableView:(UITableView *)tv viewForHeaderInSection:(NSInteger)s
 {
-    NSArray *h = [NSArray arrayWithObjects:@"JĘZYK", @"PROGRAM TV (EPG)", @"WYGLĄD", @"DANE", @"O APLIKACJI", nil];
+    NSArray *h = [NSArray arrayWithObjects:@"JĘZYK", @"WYGLĄD", @"DANE", @"O APLIKACJI", nil];
     return M3UHeaderView(L([h objectAtIndex:(NSUInteger)s]));
 }
 
@@ -61,33 +53,13 @@ M3U_ROTATE_ANY
         BOOL on = [[codes objectAtIndex:(NSUInteger)ip.row] isEqualToString:M3UCurrentLanguage()];
         c.accessoryType = on ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
     } else if (ip.section == 1) {
-        if (ip.row == 0) {
-            c.textLabel.text = L(@"Pokazuj program");
-            UISwitch *sw = [[UISwitch alloc] initWithFrame:CGRectZero];
-            sw.on = M3UEpgEnabled();
-            [sw addTarget:self action:@selector(epgSwitched:) forControlEvents:UIControlEventValueChanged];
-            c.accessoryView = sw;
-            c.selectionStyle = UITableViewCellSelectionStyleNone;
-        } else if (ip.row == 1) {
-            c.textLabel.text = L(@"Adres programu (EPG)");
-            c.detailTextLabel.text = [M3UEpgURL() isEqualToString:M3UEpgDefaultURL] ? L(@"domyślny") : L(@"własny");
-            c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-        } else if (ip.row == 2) {
-            c.textLabel.text = L(@"Odśwież program teraz");
-            c.detailTextLabel.text = M3UEpgStatus() ?: @"";
-        } else {
-            c.textLabel.text = L(@"Kanałów w programie");
-            c.detailTextLabel.text = [NSString stringWithFormat:@"%lu", (unsigned long)M3UEpgChannelCount()];
-            c.selectionStyle = UITableViewCellSelectionStyleNone;
-        }
-    } else if (ip.section == 2) {
         c.textLabel.text = L(@"Kafelki zamiast listy");
         UISwitch *sw = [[UISwitch alloc] initWithFrame:CGRectZero];
         sw.on = [[NSUserDefaults standardUserDefaults] boolForKey:kLayoutKey];
         [sw addTarget:self action:@selector(layoutSwitched:) forControlEvents:UIControlEventValueChanged];
         c.accessoryView = sw;
         c.selectionStyle = UITableViewCellSelectionStyleNone;
-    } else if (ip.section == 3) {
+    } else if (ip.section == 2) {
         if (ip.row == 0) {
             c.textLabel.text = L(@"Wyczyść pamięć logo");
             c.detailTextLabel.text = [NSString stringWithFormat:@"%.1f MB", (double)M3ULogoCacheBytes() / 1048576.0];
@@ -111,36 +83,13 @@ M3U_ROTATE_ANY
         NSString *code = [[NSArray arrayWithObjects:@"pl", @"en", @"ru", nil] objectAtIndex:(NSUInteger)ip.row];
         if ([code isEqualToString:M3UCurrentLanguage()]) return;
         M3USetLanguage(code);              /* AppDelegate odbuduje ekrany w nowym języku */
-    } else if (ip.section == 1 && ip.row == 1) {
-        UIAlertView *a = [[UIAlertView alloc] initWithTitle:L(@"Adres programu (EPG)")
-                                                    message:L(@"Wpisz adres pliku programu (JSON). Puste pole przywraca adres domyślny.")
-                                                   delegate:self cancelButtonTitle:L(@"Anuluj") otherButtonTitles:L(@"Zapisz"), nil];
-        a.alertViewStyle = UIAlertViewStylePlainTextInput;
-        UITextField *f = [a textFieldAtIndex:0];
-        f.text = M3UEpgURL();
-        f.keyboardType = UIKeyboardTypeURL;
-        f.autocorrectionType = UITextAutocorrectionTypeNo;
-        f.autocapitalizationType = UITextAutocapitalizationTypeNone;
-        [a show];
-    } else if (ip.section == 1 && ip.row == 2) {
-        M3UEpgRefresh(YES);
-    } else if (ip.section == 3 && ip.row == 0) {
+    } else if (ip.section == 2 && ip.row == 0) {
         M3UClearLogoCache();
         [tv reloadRowsAtIndexPaths:[NSArray arrayWithObject:ip] withRowAnimation:UITableViewRowAnimationNone];
         [[[UIAlertView alloc] initWithTitle:nil message:L(@"Pamięć logo wyczyszczona. Logo pobiorą się ponownie.") delegate:nil cancelButtonTitle:@"OK" otherButtonTitles:nil] show];
-    } else if (ip.section == 3 && ip.row == 1) {
+    } else if (ip.section == 2 && ip.row == 1) {
         [(AppDelegate *)[UIApplication sharedApplication].delegate showSetup];
     }
-}
-
-- (void)epgSwitched:(UISwitch *)sw { M3UEpgSetEnabled(sw.on); }
-
-- (void)alertView:(UIAlertView *)a clickedButtonAtIndex:(NSInteger)i
-{
-    if (i == a.cancelButtonIndex) return;
-    M3UEpgSetURL([[a textFieldAtIndex:0] text]);
-    M3UEpgRefresh(YES);
-    [self.tableView reloadData];
 }
 
 - (void)layoutSwitched:(UISwitch *)sw
