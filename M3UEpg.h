@@ -22,4 +22,6 @@ NSUInteger M3UEpgChannelCount(void);
 NSDictionary *M3UEpgFor(NSString *channelName);
 /* Program kanału na najbliższe godziny: tablica @[start, koniec, tytuł] od audycji, która jeszcze trwa. Pusta, gdy brak. */
 NSArray *M3UEpgList(NSString *channelName);
+NSArray *M3UEpgAll(NSString *channelName);                  /* cały program z okna danych (też minione), @[start, koniec, tytuł] */
+NSDictionary *M3UEpgAt(NSString *channelName, double t);    /* audycja trwająca w chwili t: @{title, start, end} albo nil */
 NSString *M3UEpgClock(NSTimeInterval t);      /* "20:45" w czasie lokalnym */

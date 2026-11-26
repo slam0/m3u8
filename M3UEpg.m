@@ -104,6 +104,7 @@ static void parseAndInstall(NSData *data, NSString *statusOnOK)
         NSDictionary *root = nil;
         @try { root = [NSJSONSerialization JSONObjectWithData:data options:0 error:NULL]; } @catch (NSException *e) { root = nil; }
         NSArray *chans = [root isKindOfClass:[NSDictionary class]] ? [root objectForKey:@"c"] : nil;
+        NSArray *titles = [root isKindOfClass:[NSDictionary class]] ? [root objectForKey:@"t"] : nil;   /* wersja 2: tytuły w osobnej tablicy */
         NSMutableDictionary *idx = nil;
         NSUInteger count = 0;
         if ([chans isKindOfClass:[NSArray class]]) {
@@ -111,6 +112,16 @@ static void parseAndInstall(NSData *data, NSString *statusOnOK)
             for (NSDictionary *c in chans) {
                 NSArray *p = [c objectForKey:@"p"];
                 if (![p count]) continue;
+                if (titles) {                                   /* [start, koniec, numer tytułu] -> [start, koniec, tytuł] */
+                    NSMutableArray *full = [NSMutableArray arrayWithCapacity:[p count]];
+                    for (NSArray *e in p) {
+                        if ([e count] < 3) continue;
+                        NSUInteger ti = (NSUInteger)[[e objectAtIndex:2] integerValue];
+                        if (ti >= [titles count]) continue;
+                        [full addObject:[NSArray arrayWithObjects:[e objectAtIndex:0], [e objectAtIndex:1], [titles objectAtIndex:ti], nil]];
+                    }
+                    p = full;
+                }
                 count++;
                 for (NSString *name in [c objectForKey:@"n"]) {
                     NSString *k = normalize(name);
@@ -213,4 +224,24 @@ NSArray *M3UEpgList(NSString *channelName)
         [out addObject:e];
     }
     return out;
+}
+
+/* Cały program kanału z okna danych (także to, co już się skończyło), od najstarszego. */
+NSArray *M3UEpgAll(NSString *channelName)
+{
+    if (!gIndex) return [NSArray array];
+    NSArray *p = [gIndex objectForKey:normalize(channelName)];
+    return p ? p : [NSArray array];
+}
+
+/* Audycja, która trwa w podanej chwili (sekundy UTC): @{title, start, end} albo nil. */
+NSDictionary *M3UEpgAt(NSString *channelName, double t)
+{
+    for (NSArray *e in M3UEpgAll(channelName)) {
+        if ([e count] < 3) continue;
+        double s = [[e objectAtIndex:0] doubleValue], b = [[e objectAtIndex:1] doubleValue];
+        if (s <= t && t < b)
+            return [NSDictionary dictionaryWithObjectsAndKeys:[e objectAtIndex:2], @"title", [e objectAtIndex:0], @"start", [e objectAtIndex:1], @"end", nil];
+    }
+    return nil;
 }

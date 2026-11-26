@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Zamienia duży plik programu TV (XMLTV, .xml albo .xml.gz) na mały JSON dla aplikacji iSat.
 
-Wynik: {"v":1,"generated":<epoch>,"c":[{"n":["nazwa kanału",...],"p":[[start,stop,"tytuł"],...]},...]}
+Wynik: {"v":2,"generated":<epoch>,"t":["tytuł",...],"c":[{"n":["nazwa kanału",...],"p":[[start,stop,numer tytułu],...]},...]}
 Zostają tylko kanały z rosyjskimi (cyrylicą) nazwami, bez ukraińskich i białoruskich liter,
-programy z okna od 1 godziny temu do 18 godzin do przodu; czasy w sekundach UTC.
+programy z okna od 24 godzin wstecz (archiwum) do 22 godzin do przodu; czasy w sekundach UTC.
 Użycie: build_epg.py wejście wyjście.json"""
 import gzip, json, sys, time, calendar, re
 import xml.etree.ElementTree as ET
 
-BEFORE, AHEAD = 1 * 3600, 18 * 3600          # automat działa dwa razy na dobę, więc 18 godzin wystarcza
+BEFORE, AHEAD = 24 * 3600, 22 * 3600         # doba wstecz (archiwum) i do końca jutrzejszego poranka
 
 
 CYR = re.compile('[\u0400-\u04FF]')
@@ -57,14 +57,22 @@ def main(src, dst):
                         progs.setdefault(el.get('channel'), []).append([a, b, title])
                 el.clear()
     out = []
+    titles, tindex = [], {}                     # każdy tytuł zapisujemy raz, programy mają tylko jego numer
     for cid, plist in progs.items():
         ns = names.get(cid) or [cid]
         if not is_russian(ns):
             continue
         plist.sort()
-        out.append({'n': ns, 'p': plist})
+        rows = []
+        for a, b, title in plist:
+            i = tindex.get(title)
+            if i is None:
+                i = tindex[title] = len(titles)
+                titles.append(title)
+            rows.append([a, b, i])
+        out.append({'n': ns, 'p': rows})
     out.sort(key=lambda c: c['n'][0].lower())
-    data = {'v': 1, 'generated': now, 'c': out}
+    data = {'v': 2, 'generated': now, 't': titles, 'c': out}
     with open(dst, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, separators=(',', ':'))
     size = len(json.dumps(data, ensure_ascii=False, separators=(',', ':')).encode('utf-8'))
@@ -72,7 +80,7 @@ def main(src, dst):
           % (len(names), len(out), total_prog, size / 1048576.0))
     for c in out[:8]:
         p = c['p'][0]
-        print('  próbka:', c['n'], '->', p[2], time.strftime('%H:%M', time.gmtime(p[0])) + ' UTC')
+        print('  próbka:', c['n'], '->', titles[p[2]], time.strftime('%H:%M', time.gmtime(p[0])) + ' UTC')
 
 
 if __name__ == '__main__':
