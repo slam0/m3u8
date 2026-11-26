@@ -2,12 +2,22 @@
 """Zamienia duży plik programu TV (XMLTV, .xml albo .xml.gz) na mały JSON dla aplikacji iSat.
 
 Wynik: {"v":1,"generated":<epoch>,"c":[{"n":["nazwa kanału",...],"p":[[start,stop,"tytuł"],...]},...]}
-Zostają tylko programy z okna od 2 godzin temu do 30 godzin do przodu; czasy w sekundach UTC.
+Zostają tylko kanały z rosyjskimi (cyrylicą) nazwami, bez ukraińskich i białoruskich liter,
+programy z okna od 1 godziny temu do 18 godzin do przodu; czasy w sekundach UTC.
 Użycie: build_epg.py wejście wyjście.json"""
 import gzip, json, sys, time, calendar, re
 import xml.etree.ElementTree as ET
 
-BEFORE, AHEAD = 2 * 3600, 30 * 3600
+BEFORE, AHEAD = 1 * 3600, 18 * 3600          # automat działa dwa razy na dobę, więc 18 godzin wystarcza
+
+
+CYR = re.compile('[\u0400-\u04FF]')
+NOT_RU = re.compile('[іїєґўІЇЄҐЎ]')
+
+
+def is_russian(names):
+    """Ma nazwę z cyrylicą i żadna z nazw nie ma liter ukraińskich ani białoruskich."""
+    return any(CYR.search(n) for n in names) and not any(NOT_RU.search(n) for n in names)
 
 
 def to_epoch(s):
@@ -42,13 +52,15 @@ def main(src, dst):
                 a, b = to_epoch(el.get('start') or ''), to_epoch(el.get('stop') or '')
                 if a is not None and b is not None and b >= lo and a <= hi:
                     t = el.find('title')
-                    title = ((t.text if t is not None else '') or '').strip()[:120]
+                    title = ((t.text if t is not None else '') or '').strip()[:80]
                     if title:
                         progs.setdefault(el.get('channel'), []).append([a, b, title])
                 el.clear()
     out = []
     for cid, plist in progs.items():
         ns = names.get(cid) or [cid]
+        if not is_russian(ns):
+            continue
         plist.sort()
         out.append({'n': ns, 'p': plist})
     out.sort(key=lambda c: c['n'][0].lower())
