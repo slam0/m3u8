@@ -3,6 +3,7 @@
 #import "M3UAddController.h"
 #import "M3UStore.h"
 #import "M3UTheme.h"
+#import "M3UDiag.h"
 
 @interface M3UPlaylistsController () <M3UAddDelegate>
 @property (nonatomic, strong) NSArray *playlists;
@@ -161,6 +162,7 @@
 - (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip
 {
     [tv deselectRowAtIndexPath:ip animated:YES];
+    M3UBreadcrumb([NSString stringWithFormat:@"dotknięto wiersz: sekcja %d, pozycja %d", (int)ip.section, (int)ip.row]);
     M3UChannelsController *c;
     if (ip.section == 0) {
         c = [[M3UChannelsController alloc] initWithFavorites];
@@ -170,6 +172,7 @@
         NSString *f = [self.files objectAtIndex:(NSUInteger)ip.row];
         c = [[M3UChannelsController alloc] initWithPlaylist:[NSDictionary dictionaryWithObjectsAndKeys:f, @"name", f, @"file", nil]];
     }
+    M3UBreadcrumb(@"tworzę ekran kanałów (push)");
     [self.navigationController pushViewController:c animated:YES];
 }
 

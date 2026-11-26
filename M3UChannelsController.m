@@ -4,6 +4,7 @@
 #import "M3ULogos.h"
 #import "M3UTheme.h"
 #import "M3UTiles.h"
+#import "M3UDiag.h"
 #import <MediaPlayer/MediaPlayer.h>
 
 static NSString *const kLayoutKey = @"layout_grid";
@@ -64,6 +65,7 @@ static const CGFloat kGridMonogram = 76.0f;
 - (void)viewDidLoad
 {
     [super viewDidLoad];
+    M3UBreadcrumb(@"ekran kanałów: viewDidLoad start");
     self.gridMode = [[NSUserDefaults standardUserDefaults] boolForKey:kLayoutKey];
     CGRect b = self.view.bounds;
     [self.view addSubview:M3UBackdropView(b)];
@@ -131,6 +133,7 @@ static const CGFloat kGridMonogram = 76.0f;
 
     [self applyLayoutMode];
     [self updateNavItems];
+    M3UBreadcrumb([NSString stringWithFormat:@"ekran kanałów: viewDidLoad koniec (kafelki=%d)", (int)self.gridMode]);
 }
 
 - (void)viewDidLayoutSubviews
@@ -194,7 +197,9 @@ static const CGFloat kGridMonogram = 76.0f;
 - (void)setEntriesFromText:(NSString *)text
 {
     BOOL hls = NO;
+    M3UBreadcrumb([NSString stringWithFormat:@"parsowanie tekstu, znaków: %d", (int)[text length]]);
     NSArray *list = M3UParse(text, &hls);
+    M3UBreadcrumb([NSString stringWithFormat:@"sparsowano kanałów: %d (HLS=%d)", (int)[list count], (int)hls]);
     if (hls) {
         M3UEntry *e = [[M3UEntry alloc] init];
         e.name = [self.playlist objectForKey:@"name"];
@@ -227,6 +232,7 @@ static const CGFloat kGridMonogram = 76.0f;
 - (void)loadPlaylist
 {
     NSString *file = [self.playlist objectForKey:@"file"];
+    M3UBreadcrumb([NSString stringWithFormat:@"wczytuję playlistę (plik: %@)", file ?: @"nie, adres"]);
     if (file) {
         NSData *data = [NSData dataWithContentsOfFile:[M3UDocumentsPath() stringByAppendingPathComponent:file]];
         if (!data) { self.entries = [NSArray array]; self.message = @"Nie mogę odczytać pliku."; [self rebuild]; return; }
@@ -303,7 +309,9 @@ static const CGFloat kGridMonogram = 76.0f;
         self.groupRows = rowsList;
         if ([self.entries count]) self.message = nil;
     }
+    M3UBreadcrumb([NSString stringWithFormat:@"grupy: %d, odświeżam widok", (int)[self.groupNames count]]);
     [self reloadContent];
+    M3UBreadcrumb(@"widok odświeżony");
 }
 
 /* Odświeża tylko widok, który jest teraz na ekranie. */
@@ -459,6 +467,7 @@ static const CGFloat kGridMonogram = 76.0f;
 
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip
 {
+    if (ip.row == 0) M3UBreadcrumb([NSString stringWithFormat:@"wiersz listy: sekcja %d, pierwszy", (int)ip.section]);
     static NSString *ident = @"k";
     UITableViewCell *cell = [tv dequeueReusableCellWithIdentifier:ident];
     if (!cell) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:ident];
@@ -494,6 +503,7 @@ static const CGFloat kGridMonogram = 76.0f;
 
 - (UICollectionViewCell *)collectionView:(UICollectionView *)cv cellForItemAtIndexPath:(NSIndexPath *)ip
 {
+    if (ip.item == 0) M3UBreadcrumb([NSString stringWithFormat:@"kafelek: sekcja %d, pierwszy", (int)ip.section]);
     M3UTileCell *cell = [cv dequeueReusableCellWithReuseIdentifier:@"tile" forIndexPath:ip];
     M3UEntry *e = [self entryAtSection:ip.section row:ip.item];
     [cell setTitle:e.name plate:[self tileFor:e side:kGridTile] favorite:M3UIsFavorite(e.url)];

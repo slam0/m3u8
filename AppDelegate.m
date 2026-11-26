@@ -3,6 +3,7 @@
 #import "M3UChannelsController.h"
 #import "M3USetupController.h"
 #import "M3UStore.h"
+#import "M3UDiag.h"
 #import "M3UTheme.h"
 
 @interface AppDelegate () <M3USetupDelegate>
@@ -13,6 +14,10 @@
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
+    M3UDiagInstall();
+    NSString *crash = M3UDiagCrashReportIfAny();
+    M3UBreadcrumb(@"start aplikacji 1.5.1");
+    M3UDiagMarkRunning(YES);
     M3UThemeApply();
     [application setStatusBarStyle:UIStatusBarStyleBlackOpaque];
     self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
@@ -28,8 +33,18 @@
             [self.nav presentViewController:setup animated:NO completion:nil];
         });
     }
+    if (crash) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            NSString *msg = [@"Poprzednio aplikacja zamknęła się niespodziewanie (mogło też być zwykłe wyłączenie). Ostatnie kroki:\n\n" stringByAppendingString:crash];
+            [[[UIAlertView alloc] initWithTitle:@"Raport" message:msg delegate:nil cancelButtonTitle:@"OK" otherButtonTitles:nil] show];
+        });
+    }
     return YES;
 }
+
+- (void)applicationDidEnterBackground:(UIApplication *)application { M3UDiagMarkRunning(NO); }
+- (void)applicationWillTerminate:(UIApplication *)application { M3UDiagMarkRunning(NO); }
+- (void)applicationDidBecomeActive:(UIApplication *)application { M3UDiagMarkRunning(YES); }
 
 - (void)setupFinished:(M3USetupController *)c playlist:(NSDictionary *)playlist
 {
