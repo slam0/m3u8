@@ -5,7 +5,39 @@ static UIImage *img(NSString *name) { return [UIImage imageNamed:name]; }
 UIColor *M3UTextColor(void) { return [UIColor colorWithRed:0.93f green:0.95f blue:0.99f alpha:1.0f]; }
 UIColor *M3USubtleColor(void) { return [UIColor colorWithRed:0.60f green:0.67f blue:0.80f alpha:1.0f]; }
 UIColor *M3UAccentColor(void) { return [UIColor colorWithRed:0.38f green:0.63f blue:1.0f alpha:1.0f]; }
-UIImage *M3UBackgroundPattern(void) { return img(@"bg_linen"); }
+/* Tło całego ekranu: jeden obraz przypięty do góry, bez powtarzania i bez tekstury. */
+@interface M3UBackdrop : UIView
+@end
+
+@implementation M3UBackdrop {
+    UIImageView *_pic;
+}
+
+- (id)initWithFrame:(CGRect)frame
+{
+    self = [super initWithFrame:frame];
+    if (!self) return nil;
+    self.clipsToBounds = YES;
+    self.userInteractionEnabled = NO;
+    self.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    _pic = [[UIImageView alloc] initWithImage:img(@"bg_main")];
+    _pic.contentMode = UIViewContentModeScaleToFill;
+    [self addSubview:_pic];
+    return self;
+}
+
+- (void)layoutSubviews
+{
+    [super layoutSubviews];
+    CGFloat w = self.bounds.size.width;
+    CGFloat h = w * 1136.0f / 640.0f;
+    if (h < self.bounds.size.height) h = self.bounds.size.height;
+    _pic.frame = CGRectMake(0, 0, w, h);
+}
+
+@end
+
+UIView *M3UBackdropView(CGRect frame) { return [[M3UBackdrop alloc] initWithFrame:frame]; }
 
 static UIColor *shadowColor(void) { return [UIColor colorWithWhite:0.0f alpha:0.85f]; }
 
@@ -40,9 +72,7 @@ UIImage *M3UBarIcon(NSString *name) { return img(name); }
 
 void M3UStyleTable(UITableView *tv)
 {
-    UIView *bg = [[UIView alloc] initWithFrame:tv.bounds];
-    bg.backgroundColor = [UIColor colorWithPatternImage:M3UBackgroundPattern()];
-    tv.backgroundView = bg;
+    tv.backgroundView = M3UBackdropView(tv.bounds);
     tv.backgroundColor = [UIColor clearColor];
     tv.separatorStyle = UITableViewCellSeparatorStyleNone;   /* linie rysuje tło wiersza */
 }

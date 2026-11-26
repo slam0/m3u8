@@ -71,6 +71,36 @@ def linen():
     img.resize((s // 2, s // 2), Image.LANCZOS).save(os.path.join(OUT, 'bg_linen.png'))
 
 
+
+def main_bg():
+    """Tło ekranów: gładki niebieski gradient, poświata u góry i błysk w kształcie uśmiechu. Bez tekstury."""
+    W, H = 640, 1136
+    yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
+    t = yy / (H - 1)
+    top = np.array([58, 128, 232], np.float32); mid = np.array([24, 78, 186], np.float32); bot = np.array([8, 36, 108], np.float32)
+    a = np.clip(t / 0.55, 0, 1)[..., None]; b = np.clip((t - 0.55) / 0.45, 0, 1)[..., None]
+    img = np.where(t[..., None] < 0.55, top * (1 - a) + mid * a, mid * (1 - b) + bot * b)
+    r = np.sqrt(((xx - W / 2) / (W * 0.75)) ** 2 + ((yy + 80) / 620) ** 2)
+    img = img + (np.clip(1 - r, 0, 1) ** 1.6)[..., None] * np.array([46, 62, 70], np.float32)
+    img = np.clip(img, 0, 255)
+    cx, cy, rx, ry = W / 2, -520.0, 980.0, 960.0
+    d = (np.sqrt(((xx - cx) / rx) ** 2 + ((yy - cy) / ry) ** 2) - 1.0) * ry
+    band = np.clip(1 - np.clip(d / 26.0, 0, 1), 0, 1)
+    gloss = band * (0.10 + 0.16 * np.clip(1 - yy / 470.0, 0, 1))
+    img = img + gloss[..., None] * (255 - img)
+    prof = np.exp(-((xx - W / 2) / (W * 0.46)) ** 2)
+    line = np.exp(-(d / 1.6) ** 2) * prof * 0.95
+    line2 = np.exp(-((d + 9) / 1.2) ** 2) * prof * 0.30
+    halo = np.exp(-(d / 14.0) ** 2) * prof * 0.16
+    img = img + np.clip(line + line2 + halo, 0, 1)[..., None] * (255 - img)
+    vr = np.sqrt(((xx - W / 2) / (W * 0.8)) ** 2 + ((yy - H * 0.45) / (H * 0.8)) ** 2)
+    img = img * (1 - 0.30 * np.clip(vr - 0.55, 0, 1) ** 1.3)[..., None]
+    im = Image.fromarray(np.clip(img, 0, 255).astype(np.uint8), 'RGB')
+    im.save(os.path.join(OUT, 'bg_main@2x.png'))
+    im.resize((W // 2, H // 2), Image.LANCZOS).save(os.path.join(OUT, 'bg_main.png'))
+    return im
+
+
 def nav_bar():
     w, h = 640, 88
     g = vgrad(h, (62, 90, 146), (16, 26, 58))
@@ -94,12 +124,16 @@ def strip(name, top, bottom, light, dark):
     save2x(img, name)
 
 
-def stretch_row(name, top, bottom, light, dark, w=8, h=120):
+def stretch_row(name, top, bottom, light, dark, w=8, h=120, alpha=1.0):
     img = grad_img(w, h, top, bottom)
     img = hline(img, 0, light, 2)
     img = hline(img, 2, (255, 255, 255), 1, 0.04)
     img = hline(img, h - 2, dark, 2)
-    save2x(img, name)
+    rgba = img.convert('RGBA')
+    al = np.full((h, w), int(255 * alpha), np.uint8)
+    al[0:2, :] = 255; al[h - 2:, :] = 255          # linie zostają kryjące
+    rgba.putalpha(Image.fromarray(al))
+    save2x(rgba, name)
 
 
 # ---------- guziki i karty ----------
@@ -153,7 +187,12 @@ def buttons():
 
 def tile_card():
     w, h = 192, 240
-    glossy(mask_rounded(w, h, 18), w, h, (46, 64, 106), (22, 32, 62), 'tile_card', (5, 9, 20), (112, 140, 196), gloss=22)
+    glossy(mask_rounded(w, h, 18), w, h, (40, 66, 124), (16, 30, 72), 'tile_card', (5, 9, 20), (112, 140, 196), gloss=22)
+    for suf in ('@2x.png', '.png'):
+        pth = os.path.join(OUT, 'tile_card' + suf)
+        im = Image.open(pth).convert('RGBA')
+        a = im.split()[3].point(lambda v: int(v * 0.84))
+        im.putalpha(a); im.save(pth)
 
 
 def icons_bar():
@@ -216,13 +255,10 @@ def icon_1024():
 def icons_and_launch(icon):
     for name, sz in (('Icon.png', 57), ('Icon@2x.png', 114), ('Icon-Small.png', 29), ('Icon-Small@2x.png', 58)):
         icon.resize((sz, sz), Image.LANCZOS).save(os.path.join(OUT, name))
-    lin = Image.open(os.path.join(OUT, 'bg_linen@2x.png'))
+    bgm = Image.open(os.path.join(OUT, 'bg_main@2x.png'))
     nav = Image.open(os.path.join(OUT, 'nav_bar@2x.png'))
     for w, h, name in ((640, 960, 'Default@2x.png'), (640, 1136, 'Default-568h@2x.png')):
-        im = Image.new('RGB', (w, h))
-        for y in range(0, h, lin.size[1]):
-            for x in range(0, w, lin.size[0]):
-                im.paste(lin, (x, y))
+        im = bgm.crop((0, 0, w, h)).copy()
         im.paste(nav, (0, 0))
         ic = icon.resize((256, 256), Image.LANCZOS)
         m = Image.new('L', (256, 256), 0)
@@ -239,10 +275,10 @@ if __name__ == '__main__':
             p = os.path.join(OUT, old + suf)
             if os.path.exists(p):
                 os.remove(p)
-    linen(); nav_bar()
+    bg = main_bg(); nav_bar()
     strip('header_bar', (54, 82, 138), (28, 46, 94), (118, 150, 210), (6, 10, 24))
-    stretch_row('cell_bg', (35, 48, 80), (27, 38, 66), (60, 78, 120), (9, 14, 30))
-    stretch_row('cell_sel', (66, 134, 236), (30, 84, 190), (160, 204, 255), (12, 38, 98))
+    stretch_row('cell_bg', (24, 40, 92), (16, 30, 76), (86, 120, 190), (6, 12, 34), alpha=0.58)
+    stretch_row('cell_sel', (66, 134, 236), (30, 84, 190), (160, 204, 255), (12, 38, 98), alpha=0.92)
     buttons(); tile_card(); icons_bar()
     icons_and_launch(icon_1024())
     print('gotowe:', sorted(os.listdir(OUT)))

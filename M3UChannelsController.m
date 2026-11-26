@@ -65,8 +65,8 @@ static const CGFloat kGridMonogram = 76.0f;
 {
     [super viewDidLoad];
     self.gridMode = [[NSUserDefaults standardUserDefaults] boolForKey:kLayoutKey];
-    self.view.backgroundColor = [UIColor colorWithPatternImage:M3UBackgroundPattern()];
     CGRect b = self.view.bounds;
+    [self.view addSubview:M3UBackdropView(b)];
     CGFloat sh = 44.0f;
 
     self.table = [[UITableView alloc] initWithFrame:CGRectMake(0, sh, b.size.width, b.size.height - sh) style:UITableViewStylePlain];
@@ -75,6 +75,7 @@ static const CGFloat kGridMonogram = 76.0f;
     self.table.delegate = self;
     self.table.rowHeight = 58.0f;
     M3UStyleTable(self.table);
+    self.table.backgroundView = nil;               /* tło jest jedno, pod całym ekranem */
     [self.view addSubview:self.table];
 
     UICollectionViewFlowLayout *fl = [[UICollectionViewFlowLayout alloc] init];
