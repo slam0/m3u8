@@ -5,6 +5,8 @@
 #import "M3UTheme.h"
 #import "M3UDiag.h"
 #import "M3ULocalization.h"
+#import "M3UMediaController.h"
+#import "M3UPortal.h"
 
 @interface M3UPlaylistsController () <M3UAddDelegate>
 @property (nonatomic, strong) NSArray *playlists;
@@ -137,7 +139,7 @@ M3U_ROTATE_ANY
         NSDictionary *d = [self.playlists objectAtIndex:(NSUInteger)ip.row];
         cell.imageView.image = M3UGlyphTile(1, 40.0f);
         cell.textLabel.text = [d objectForKey:@"name"];
-        cell.detailTextLabel.text = [d objectForKey:@"url"];
+        cell.detailTextLabel.text = M3UIsPortalLink([d objectForKey:@"url"]) ? L(@"mediateka (filmy i seriale)") : [d objectForKey:@"url"];   /* klucza nie pokazujemy */
     } else {
         NSString *f = [self.files objectAtIndex:(NSUInteger)ip.row];
         cell.imageView.image = M3UGlyphTile(2, 40.0f);
@@ -169,6 +171,10 @@ M3U_ROTATE_ANY
     M3UChannelsController *c;
     if (ip.section == 0) {
         c = [[M3UChannelsController alloc] initWithFavorites];
+    } else if (ip.section == 1 && M3UIsPortalLink([[self.playlists objectAtIndex:(NSUInteger)ip.row] objectForKey:@"url"])) {
+        M3UMediaController *mc = [[M3UMediaController alloc] initWithPlaylist:[self.playlists objectAtIndex:(NSUInteger)ip.row]];
+        [self.navigationController pushViewController:mc animated:YES];
+        return;
     } else if (ip.section == 1) {
         c = [[M3UChannelsController alloc] initWithPlaylist:[self.playlists objectAtIndex:(NSUInteger)ip.row]];
     } else {

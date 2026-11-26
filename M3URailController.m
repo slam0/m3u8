@@ -2,6 +2,7 @@
 #import "M3UChannelsController.h"
 #import "M3UPlaylistsController.h"
 #import "M3USettingsController.h"
+#import "M3UMediaController.h"
 #import "M3UTheme.h"
 #import "M3UDiag.h"
 #import "M3ULocalization.h"
@@ -315,7 +316,7 @@ M3U_ROTATE_ANY
 {
     UIViewController *vc = self.nav.topViewController;
     NSInteger on = -1;
-    if ([vc isKindOfClass:[M3UPlaylistsController class]]) on = kTagPlaylists;
+    if ([vc isKindOfClass:[M3UPlaylistsController class]] || [vc isKindOfClass:[M3UMediaController class]]) on = kTagPlaylists;
     else if ([vc isKindOfClass:[M3USettingsController class]]) on = kTagSettings;
     else if ([vc isKindOfClass:[M3UCategoryPicker class]]) on = kTagCategories;
     else if ([vc isKindOfClass:[M3UChannelsController class]] && [(M3UChannelsController *)vc isFavoritesScreen]) on = kTagFavorites;

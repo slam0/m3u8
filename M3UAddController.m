@@ -1,6 +1,7 @@
 #import "M3UAddController.h"
 #import "M3UTheme.h"
 #import "M3ULocalization.h"
+#import "M3UPortal.h"
 
 @interface M3UAddController () <UITextFieldDelegate>
 @property (nonatomic, strong) UITextField *nameField;
@@ -60,6 +61,11 @@ M3U_ROTATE_ANY
     [self.view endEditing:YES];
     NSString *url = [self.urlField.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
     NSString *name = [self.nameField.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (M3UIsPortalLink(url)) {                                   /* mediateka: portal::[key:...]http://... */
+        if (![M3UPortal portalFromLink:url]) { [self alert:L(@"To nie jest poprawny link mediateki.")]; return; }
+        [self.delegate addController:self didAddName:([name length] ? name : L(@"Mediateka")) url:url];
+        return;
+    }
     NSString *lower = [url lowercaseString];
     NSURL *u = [NSURL URLWithString:url];
     if (!u || !([lower hasPrefix:@"http://"] || [lower hasPrefix:@"https://"]) || ![[u host] length]) {
@@ -83,12 +89,12 @@ M3U_ROTATE_ANY
 
 - (UIView *)tableView:(UITableView *)tv viewForFooterInSection:(NSInteger)s
 {
-    return s == 0 ? M3UFooterView(L(@"Adres playlisty skopiujesz np. z panelu swojego dostawcy IPTV."), tv.bounds.size.width) : nil;
+    return s == 0 ? M3UFooterView(L(@"Adres playlisty skopiujesz np. z panelu swojego dostawcy IPTV. Link mediateki (portal::[key:…]http://…) wklej w całości."), tv.bounds.size.width) : nil;
 }
 
 - (CGFloat)tableView:(UITableView *)tv heightForFooterInSection:(NSInteger)s
 {
-    return s == 0 ? M3UFooterHeight(L(@"Adres playlisty skopiujesz np. z panelu swojego dostawcy IPTV."), tv.bounds.size.width) : 0.0f;
+    return s == 0 ? M3UFooterHeight(L(@"Adres playlisty skopiujesz np. z panelu swojego dostawcy IPTV. Link mediateki (portal::[key:…]http://…) wklej w całości."), tv.bounds.size.width) : 0.0f;
 }
 
 - (UIView *)tableView:(UITableView *)tv viewForHeaderInSection:(NSInteger)s

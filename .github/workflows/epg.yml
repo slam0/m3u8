@@ -1,0 +1,58 @@
+name: Program TV (EPG)
+
+# Dwa razy na dobę pobiera publiczny program TV dla rosyjskich kanałów, zamienia go na mały plik epg.json
+# i wrzuca do wydania "epg". Aplikacja iSat pobiera tylko ten mały plik.
+# Ręcznie: zakładka "Actions" -> "Program TV (EPG)" -> "Run workflow" (można podać własny adres źródła).
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: "Adres pliku XMLTV (.xml albo .xml.gz); puste = lista domyślna"
+        required: false
+        default: ""
+  schedule:
+    - cron: "17 3,15 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  epg:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pobierz program TV
+        env:
+          SRC: ${{ github.event.inputs.source }}
+        run: |
+          CANDIDATES="$SRC
+          http://epg.giclub.tv/epg/xmltv-ru.xml.gz
+          https://iptvx.one/EPG
+          https://epg.it999.ru/epg.xml.gz"
+          rm -f src.bin
+          for u in $CANDIDATES; do
+            [ -z "$u" ] && continue
+            echo "== próbuję: $u"
+            code=$(curl -sS -L -m 120 -o try.bin -w "%{http_code} %{size_download}" "$u" || echo "błąd")
+            echo "   odpowiedź: $code"
+            if [ -s try.bin ]; then
+              if gzip -t try.bin 2>/dev/null; then mv try.bin src.gz; echo "   OK (gzip)"; break; fi
+              if head -c 200 try.bin | grep -q "<?xml\|<tv"; then mv try.bin src.xml; echo "   OK (xml)"; break; fi
+              echo "   to nie jest plik programu"
+            fi
+          done
+          ls -la src.* || { echo "Żadne źródło nie zadziałało"; exit 1; }
+
+      - name: Zbuduj epg.json
+        run: |
+          IN=$(ls src.gz src.xml 2>/dev/null | head -1)
+          python3 tools/build_epg.py "$IN" epg.json
+          ls -la epg.json
+
+      - name: Opublikuj w wydaniu "epg"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view epg >/dev/null 2>&1 || gh release create epg --title "Program TV (EPG)" --notes "Plik epg.json odświeżany automatycznie dwa razy na dobę."
+          gh release upload epg epg.json --clobber
