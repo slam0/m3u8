@@ -6,6 +6,8 @@
     UIImageView *_plate;
     UILabel *_title;
     UILabel *_star;
+    UILabel *_prog;
+    UIView *_track, *_fill;
 }
 
 - (id)initWithFrame:(CGRect)frame
@@ -36,6 +38,24 @@
     _title.lineBreakMode = NSLineBreakByTruncatingTail;
     [self.contentView addSubview:_title];
 
+    _prog = [[UILabel alloc] initWithFrame:CGRectMake(8, 136, frame.size.width - 16, 14)];
+    _prog.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+    _prog.backgroundColor = [UIColor clearColor];
+    _prog.textColor = M3USubtleColor();
+    _prog.font = [UIFont systemFontOfSize:11.0f];
+    _prog.textAlignment = NSTextAlignmentCenter;
+    _prog.lineBreakMode = NSLineBreakByTruncatingTail;
+    _prog.hidden = YES;
+    [self.contentView addSubview:_prog];
+    _track = [[UIView alloc] initWithFrame:CGRectMake(12, 153, frame.size.width - 24, 3)];
+    _track.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+    _track.backgroundColor = [UIColor colorWithWhite:1.0f alpha:0.22f];
+    _track.hidden = YES;
+    [self.contentView addSubview:_track];
+    _fill = [[UIView alloc] initWithFrame:CGRectZero];
+    _fill.backgroundColor = M3UAccentColor();
+    [_track addSubview:_fill];
+
     _star = [[UILabel alloc] initWithFrame:CGRectMake(frame.size.width - 30, 4, 26, 24)];
     _star.backgroundColor = [UIColor clearColor];
     _star.text = @"★";
@@ -59,6 +79,16 @@
 }
 
 - (void)setPlate:(UIImage *)plate { _plate.image = plate; }
+
+- (void)setProgram:(NSString *)text progress:(float)progress
+{
+    _prog.hidden = _track.hidden = (text == nil);
+    _prog.text = text;
+    if (!text) return;
+    if (progress < 0) progress = 0;
+    if (progress > 1) progress = 1;
+    _fill.frame = CGRectMake(0, 0, (CGFloat)(int)(_track.bounds.size.width * progress), 3);
+}
 
 - (void)setHighlighted:(BOOL)highlighted
 {
