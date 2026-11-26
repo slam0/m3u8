@@ -5,6 +5,7 @@
 #import "M3UStore.h"
 #import "M3UDiag.h"
 #import "M3UTheme.h"
+#import "M3URailController.h"
 
 @interface AppDelegate () <M3USetupDelegate>
 @property (nonatomic, strong) UINavigationController *nav;
@@ -16,13 +17,17 @@
 {
     M3UDiagInstall();
     NSString *crash = M3UDiagCrashReportIfAny();
-    M3UBreadcrumb(@"start aplikacji 1.6.0");
+    M3UBreadcrumb(@"start aplikacji 1.7.0");
     M3UDiagMarkRunning(YES);
     M3UThemeApply();
     [application setStatusBarStyle:UIStatusBarStyleBlackOpaque];
     self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
     self.nav = [[UINavigationController alloc] initWithRootViewController:[[M3UPlaylistsController alloc] init]];
-    self.window.rootViewController = self.nav;
+    /* iPad: pasek boczny z logo i funkcjami po lewej; iPhone: sama nawigacja */
+    if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad)
+        self.window.rootViewController = [[M3URailController alloc] initWithNavigation:self.nav];
+    else
+        self.window.rootViewController = self.nav;
     [self.window makeKeyAndVisible];
     if ([M3USetupController needsSetup]) {
         /* ekran konfiguracji tylko przy pierwszym uruchomieniu (bez zapisanych playlist) */
@@ -30,7 +35,7 @@
             M3USetupController *setup = [[M3USetupController alloc] init];
             setup.delegate = self;
             setup.modalTransitionStyle = UIModalTransitionStyleCrossDissolve;
-            [self.nav presentViewController:setup animated:NO completion:nil];
+            [self.window.rootViewController presentViewController:setup animated:NO completion:nil];
         });
     }
     if (crash) {
@@ -56,7 +61,7 @@
         /* od razu pokazujemy kanały nowej playlisty (pod spodem, zanim zniknie ekran konfiguracji) */
         [self.nav pushViewController:[[M3UChannelsController alloc] initWithPlaylist:playlist] animated:NO];
     }
-    [self.nav dismissViewControllerAnimated:YES completion:nil];
+    [self.window.rootViewController dismissViewControllerAnimated:YES completion:nil];
 }
 
 /* „Otwórz w…” z Safari lub Poczty: kopiujemy plik do Documents i pokazujemy na liście. */

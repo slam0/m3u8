@@ -19,8 +19,8 @@ UIImage *M3UBarIcon(NSString *name);               /* ikona na przycisk paska: @
 /* Obracanie ekranu (iOS 5 i iOS 6+): wszystkie ekrany poza kreatorem startowym */
 #define M3U_ROTATE_ANY \
     - (BOOL)shouldAutorotate { return YES; } \
-    - (UIInterfaceOrientationMask)supportedInterfaceOrientations { return UIInterfaceOrientationMaskAllButUpsideDown; } \
-    - (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)o { return o != UIInterfaceOrientationPortraitUpsideDown; }
+    - (UIInterfaceOrientationMask)supportedInterfaceOrientations { return UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad ? UIInterfaceOrientationMaskAll : UIInterfaceOrientationMaskAllButUpsideDown; } \
+    - (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)o { return UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad || o != UIInterfaceOrientationPortraitUpsideDown; }
 #define M3U_ROTATE_PORTRAIT \
     - (BOOL)shouldAutorotate { return NO; } \
     - (UIInterfaceOrientationMask)supportedInterfaceOrientations { return UIInterfaceOrientationMaskPortrait; } \

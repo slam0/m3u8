@@ -27,6 +27,8 @@ static const CGFloat kGridMonogram = 76.0f;
 @property (nonatomic, strong) UITableView *table;
 @property (nonatomic, strong) UICollectionView *grid;
 @property (nonatomic) CGFloat gridWidth;
+@property (nonatomic, strong) NSArray *catNames;      /* wszystkie grupy playlisty (nie znikają przy szukaniu) */
+@property (nonatomic, strong) NSArray *catRows;
 @property (nonatomic, assign) BOOL categoryMode;    /* pokazujemy listę kategorii, nie kanały */
 @property (nonatomic, assign) BOOL presetEntries;    /* kanały podane z góry (kategoria / wszystkie) */
 @property (nonatomic, assign) BOOL groupLocked;      /* jedna kategoria: nagłówki zbędne */
@@ -289,7 +291,7 @@ M3U_ROTATE_ANY
 
 - (void)refreshTapped
 {
-    if (self.loading) return;
+    if (self.loading || self.favoritesMode || self.presetEntries) return;
     NSString *file = [self.playlist objectForKey:@"file"];
     if (file) { [self loadPlaylist]; return; }
     [self fetch:[self.playlist objectForKey:@"url"] silent:NO];
@@ -350,6 +352,8 @@ M3U_ROTATE_ANY
         for (NSString *g in names) [rowsList addObject:[byName objectForKey:g]];
         self.groupNames = names;
         self.groupRows = rowsList;
+        self.catNames = names;
+        self.catRows = rowsList;
         self.categoryMode = !self.favoritesMode && !self.presetEntries && [names count] >= 2;
         if ([self.entries count]) self.message = nil;
     }
@@ -504,12 +508,33 @@ M3U_ROTATE_ANY
 
 #pragma mark - Kategorie
 
+/* Dla paska bocznego na iPadzie. */
+- (BOOL)isFavoritesScreen { return self.favoritesMode; }
+- (BOOL)isPlaylistRoot { return !self.favoritesMode && !self.presetEntries; }
+
+- (NSArray *)categoryItems
+{
+    if (![self isPlaylistRoot] || [self.catNames count] < 2) return nil;
+    NSMutableArray *out = [NSMutableArray array];
+    for (NSInteger r = 0; r < 2 + (NSInteger)[self.catNames count]; r++)
+        [out addObject:[NSDictionary dictionaryWithObjectsAndKeys:[self categoryName:r], @"name",
+                        [NSNumber numberWithInteger:[self categoryCount:r]], @"count", nil]];
+    return out;
+}
+
+- (void)openCategoryAtIndex:(NSInteger)r
+{
+    if (r >= 0 && r < 2 + (NSInteger)[self.catNames count]) [self openCategory:r];
+}
+
+- (void)focusSearch { [self.search becomeFirstResponder]; }
+
 /* Nazwa, liczba kanałów i płytka wiersza kategorii: 0 = Ulubione, 1 = Wszystkie, dalej grupy z playlisty. */
 - (NSString *)categoryName:(NSInteger)r
 {
     if (r == 0) return @"Ulubione";
     if (r == 1) return @"Wszystkie kanały";
-    NSString *g = [self.groupNames objectAtIndex:(NSUInteger)(r - 2)];
+    NSString *g = [self.catNames objectAtIndex:(NSUInteger)(r - 2)];
     return [g length] ? g : @"Bez grupy";
 }
 
@@ -517,7 +542,7 @@ M3U_ROTATE_ANY
 {
     if (r == 0) return (NSInteger)[M3UFavorites() count];
     if (r == 1) return (NSInteger)[self.entries count];
-    return (NSInteger)[[self.groupRows objectAtIndex:(NSUInteger)(r - 2)] count];
+    return (NSInteger)[[self.catRows objectAtIndex:(NSUInteger)(r - 2)] count];
 }
 
 - (void)openCategory:(NSInteger)r
@@ -528,7 +553,7 @@ M3U_ROTATE_ANY
     } else if (r == 1) {
         vc = [[M3UChannelsController alloc] initWithEntries:self.entries group:nil title:@"Wszystkie kanały"];
     } else {
-        NSString *g = [self.groupNames objectAtIndex:(NSUInteger)(r - 2)];
+        NSString *g = [self.catNames objectAtIndex:(NSUInteger)(r - 2)];
         vc = [[M3UChannelsController alloc] initWithEntries:self.entries group:g title:[self categoryName:r]];
     }
     M3UBreadcrumb([NSString stringWithFormat:@"otwieram kategorię: %@", [self categoryName:r]]);

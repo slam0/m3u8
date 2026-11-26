@@ -117,10 +117,13 @@ static UIImageView *glassPanel(CGRect frame)
     [self.view addSubview:self.pager];
 
     CGFloat extra = (H > 470.0f) ? (H - 460.0f) * 0.35f : 0.0f;       /* na wyższym ekranie (iPhone 5) trochę luzu */
-    [self buildWelcome:CGRectMake(0, 0, W, H) extra:extra];
-    [self buildWays:CGRectMake(W, 0, W, H) extra:extra];
-    [self buildForm:CGRectMake(W * 2, 0, W, H) extra:extra];
-    [self buildLayout:CGRectMake(W * 3, 0, W, H) extra:extra];
+    if (extra > 130.0f) extra = 130.0f;
+    /* na iPadzie treść stoi w wąskiej kolumnie pośrodku, jak na telefonie */
+    CGFloat cw = W > 480.0f ? 420.0f : W, cx = (W - cw) / 2.0f;
+    [self buildWelcome:CGRectMake(cx, 0, cw, H) extra:extra];
+    [self buildWays:CGRectMake(W + cx, 0, cw, H) extra:extra];
+    [self buildForm:CGRectMake(W * 2 + cx, 0, cw, H) extra:extra];
+    [self buildLayout:CGRectMake(W * 3 + cx, 0, cw, H) extra:extra];
 
     self.dots = [[UIPageControl alloc] initWithFrame:CGRectMake(0, H - 86, W, 20)];
     self.dots.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin;

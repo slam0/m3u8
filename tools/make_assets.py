@@ -314,6 +314,82 @@ def icons_and_launch(icon):
             im.resize((w // 2, h // 2), Image.LANCZOS).save(os.path.join(OUT, 'Default.png'))
 
 
+def rail_glyphs():
+    """Ikonki przycisków paska bocznego iPada (białe, z przezroczystością); 26 pt = 26 px @1x i 52 px @2x."""
+    import math
+    K = 8                                  # rysujemy w 8-krotnym powiększeniu i zmniejszamy
+    S = 52 * K
+    WHT = (238, 243, 252, 255)
+
+    def canvas():
+        im = Image.new('RGBA', (S, S), (0, 0, 0, 0)); return im, ImageDraw.Draw(im)
+
+    def box(*a): return tuple(int(v * K) for v in a)
+
+    def save(im, name):
+        big = im.resize((52, 52), Image.LANCZOS)
+        big.save(os.path.join(OUT, name + '@2x.png'))
+        big.resize((26, 26), Image.LANCZOS).save(os.path.join(OUT, name + '.png'))
+
+    im, d = canvas()                                            # lista
+    for k in range(3): d.rounded_rectangle(box(4, 10 + k * 13, 48, 17 + k * 13), radius=3 * K, fill=WHT)
+    save(im, 'rail_list')
+
+    im, d = canvas()                                            # gwiazdka
+    pts = []
+    for i in range(10):
+        r = 24 if i % 2 == 0 else 10
+        a = -math.pi / 2 + i * math.pi / 5
+        pts.append((26 * K + r * K * math.cos(a), 27 * K + r * K * math.sin(a)))
+    d.polygon(pts, fill=(255, 210, 80, 255))
+    save(im, 'rail_star')
+
+    im, d = canvas()                                            # kategorie (4 kwadraty)
+    for i in range(2):
+        for j in range(2): d.rounded_rectangle(box(4 + i * 24, 4 + j * 24, 24 + i * 24, 24 + j * 24), radius=4 * K, fill=WHT)
+    save(im, 'rail_cat')
+
+    im, d = canvas()                                            # lupa
+    d.ellipse(box(5, 5, 33, 33), outline=WHT, width=5 * K)
+    d.line(box(30, 30, 46, 46), fill=WHT, width=6 * K)
+    save(im, 'rail_search')
+
+    im, d = canvas()                                            # układ (kafelek + linie)
+    for i in range(3):
+        d.rounded_rectangle(box(4, 6 + i * 16, 18, 16 + i * 16), radius=3 * K, fill=WHT)
+        d.rounded_rectangle(box(24, 9 + i * 16, 48, 13 + i * 16), radius=2 * K, fill=WHT)
+    save(im, 'rail_layout')
+
+    im, d = canvas()                                            # odśwież
+    d.arc(box(6, 6, 46, 46), 40, 320, fill=WHT, width=5 * K)
+    d.polygon([(int(44 * K), int(4 * K)), (int(46 * K), int(24 * K)), (int(28 * K), int(18 * K))], fill=WHT)
+    save(im, 'rail_refresh')
+
+    im, d = canvas()                                            # plus
+    d.rounded_rectangle(box(4, 22, 48, 30), radius=3 * K, fill=WHT)
+    d.rounded_rectangle(box(22, 4, 30, 48), radius=3 * K, fill=WHT)
+    save(im, 'rail_plus')
+
+
+def ipad_icons_and_launch(icon):
+    for name, sz in (('Icon-72.png', 72), ('Icon-72@2x.png', 144), ('Icon-Small-50.png', 50), ('Icon-Small-50@2x.png', 100)):
+        icon.resize((sz, sz), Image.LANCZOS).save(os.path.join(OUT, name))
+    bgm = Image.open(os.path.join(OUT, 'bg_main@2x.png')).convert('RGB')
+    nav = Image.open(os.path.join(OUT, 'nav_bar@2x.png')).convert('RGBA')
+    for w, h, name in ((768, 1024, 'Default-Portrait~ipad.png'), (1536, 2048, 'Default-Portrait@2x~ipad.png'),
+                       (1024, 768, 'Default-Landscape~ipad.png'), (2048, 1536, 'Default-Landscape@2x~ipad.png')):
+        scale = 2 if '@2x' in name else 1
+        bh = int(bgm.height * w / bgm.width)
+        im = bgm.resize((w, max(bh, h)), Image.LANCZOS).crop((0, 0, w, h)).convert('RGBA')
+        im.alpha_composite(nav.resize((w, nav.height * scale // 2 * 1), Image.LANCZOS), (0, 0))
+        side = 128 * scale
+        ic = icon.resize((side, side), Image.LANCZOS).convert('RGBA')
+        m = Image.new('L', (side, side), 0)
+        ImageDraw.Draw(m).rounded_rectangle((0, 0, side - 1, side - 1), radius=side * 46 // 256, fill=255)
+        im.paste(ic, ((w - side) // 2, (h - side) // 2), m)
+        im.convert('RGB').save(os.path.join(OUT, name))
+
+
 if __name__ == '__main__':
     for old in ('nav_leather', 'header_leather', 'bg_paper'):
         for suf in ('.png', '@2x.png'):
@@ -326,4 +402,5 @@ if __name__ == '__main__':
     stretch_row('cell_sel', (66, 134, 236), (30, 84, 190), (160, 204, 255), (12, 38, 98), alpha=0.92)
     buttons(); tile_card(); icons_bar(); setup_assets()
     icons_and_launch(icon_1024())
+    ipad_icons_and_launch(icon_1024()); rail_glyphs()
     print('gotowe:', sorted(os.listdir(OUT)))
