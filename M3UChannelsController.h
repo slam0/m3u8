@@ -1,7 +1,7 @@
 #import <UIKit/UIKit.h>
 
-/* Lista kanałów jednej playlisty (albo ulubionych), z wyszukiwarką i odtwarzaniem. */
-@interface M3UChannelsController : UITableViewController
+/* Kanały jednej playlisty (albo ulubione): wyszukiwarka, układ listy lub kafelków, odtwarzanie. */
+@interface M3UChannelsController : UIViewController
 - (id)initWithPlaylist:(NSDictionary *)playlist;   /* @{name, url} lub @{name, file} */
 - (id)initWithFavorites;
 @end

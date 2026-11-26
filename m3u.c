@@ -123,7 +123,11 @@ int m3u_parse(const char *text, size_t len, m3u_entry_cb cb, void *ctx)
                 size_t dl = ll - 8;
                 name[0] = group[0] = logo[0] = 0;
                 attr(d, dl, "group-title", group);
-                if (!attr(d, dl, "tvg-logo", logo)) attr(d, dl, "logo", logo);
+                {
+                    /* różne listy nazywają logo różnie */
+                    static const char *const keys[] = { "tvg-logo", "tvg_logo", "logo", "tvg-logo-small", "tvg-icon", "icon", "logo_url", "logo-url", NULL };
+                    for (int k = 0; keys[k] && !logo[0]; k++) attr(d, dl, keys[k], logo);
+                }
                 title_of(d, dl, name);
                 if (!name[0] && attr(d, dl, "tvg-name", tmp)) put(name, tmp, strlen(tmp));
                 have = 1;

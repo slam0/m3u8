@@ -2,23 +2,23 @@
 
 NSString *const M3ULogoDidLoad = @"M3ULogoDidLoad";
 
-static const CGFloat kSide = 46.0f;
 static const NSUInteger kMaxBytes = 1500000;
 
-/* NSCache celowo nie używamy: SDK 9.3 wiąże go z CoreFoundation, a w iOS 6 jest w Foundation. */
-static NSMutableDictionary *memory;
-static NSMutableSet *failed;
-static NSMutableSet *inflight;
+/* Słowniki zamiast NSCache: SDK 9.3 wiąże NSCache z CoreFoundation, a w iOS 6 jest w Foundation. */
+static NSMutableDictionary *tiles;        /* "bok|url" -> kafelek z logo */
+static NSMutableDictionary *monograms;    /* "bok|nazwa" -> płytka z inicjałami */
+static NSMutableDictionary *failed;       /* url -> powód błędu */
+static NSMutableSet *inflight;            /* "bok|url" */
 static NSOperationQueue *queue;
-static UIImage *placeholder;
 static CGFloat screenScale = 1.0f;
 
 static void setup(void)
 {
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        memory = [[NSMutableDictionary alloc] init];
-        failed = [[NSMutableSet alloc] init];
+        tiles = [[NSMutableDictionary alloc] init];
+        monograms = [[NSMutableDictionary alloc] init];
+        failed = [[NSMutableDictionary alloc] init];
         inflight = [[NSMutableSet alloc] init];
         queue = [[NSOperationQueue alloc] init];
         queue.maxConcurrentOperationCount = 3;
@@ -26,48 +26,35 @@ static void setup(void)
     });
 }
 
-/* Ramka kafelka ze szklanym połyskiem; logo (jeśli jest) wpisane w środek z zachowaniem proporcji. */
-static UIImage *composeTile(UIImage *logo)
-{
-    UIGraphicsBeginImageContextWithOptions(CGSizeMake(kSide, kSide), NO, screenScale);
-    CGContextRef ctx = UIGraphicsGetCurrentContext();
-    CGRect r = CGRectMake(1.0f, 1.0f, kSide - 2.0f, kSide - 2.0f);
-    UIBezierPath *shape = [UIBezierPath bezierPathWithRoundedRect:r cornerRadius:8.0f];
+static NSString *key(CGFloat side, NSString *s) { return [NSString stringWithFormat:@"%d|%@", (int)side, s]; }
 
-    CGContextSaveGState(ctx);
-    [shape addClip];
+#pragma mark - Rysowanie
+
+static void gradientFill(CGContextRef ctx, CGRect r, const CGFloat c[8])
+{
     CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB();
-    CGFloat colors[8] = { 1.0f, 1.0f, 1.0f, 1.0f,  0.88f, 0.85f, 0.78f, 1.0f };
-    CGGradientRef g = CGGradientCreateWithColorComponents(cs, colors, NULL, 2);
-    CGContextDrawLinearGradient(ctx, g, CGPointMake(0, 1), CGPointMake(0, kSide - 1.0f), 0);
+    CGGradientRef g = CGGradientCreateWithColorComponents(cs, c, NULL, 2);
+    CGContextDrawLinearGradient(ctx, g, CGPointMake(0, r.origin.y), CGPointMake(0, r.origin.y + r.size.height), 0);
     CGGradientRelease(g);
     CGColorSpaceRelease(cs);
+}
 
-    if (logo && logo.size.width > 0 && logo.size.height > 0) {
-        CGFloat box = kSide - 12.0f;
-        CGFloat kx = box / logo.size.width, ky = box / logo.size.height;
-        CGFloat k = kx < ky ? kx : ky;
-        CGSize sz = CGSizeMake(logo.size.width * k, logo.size.height * k);
-        CGContextSetInterpolationQuality(ctx, kCGInterpolationHigh);
-        [logo drawInRect:CGRectMake((kSide - sz.width) / 2.0f, (kSide - sz.height) / 2.0f, sz.width, sz.height)];
-    } else {
-        /* brak logo: brązowy krążek z trójkątem „play” */
-        CGRect disc = CGRectMake(11, 11, kSide - 22.0f, kSide - 22.0f);
-        CGContextSetRGBFillColor(ctx, 0.36f, 0.25f, 0.18f, 1.0f);
-        CGContextFillEllipseInRect(ctx, disc);
-        CGContextSetRGBFillColor(ctx, 0.96f, 0.92f, 0.80f, 1.0f);
-        CGContextMoveToPoint(ctx, 20.0f, 17.0f);
-        CGContextAddLineToPoint(ctx, 20.0f, 29.0f);
-        CGContextAddLineToPoint(ctx, 30.0f, 23.0f);
-        CGContextFillPath(ctx);
-    }
-
-    /* szklany połysk na górnej połowie */
-    CGContextSetRGBFillColor(ctx, 1.0f, 1.0f, 1.0f, 0.30f);
-    CGContextFillRect(ctx, CGRectMake(0, 0, kSide, kSide / 2.0f));
+/* Wspólna oprawa: zaokrąglona płytka z gradientem, szklanym połyskiem i ciemnym obrysem. */
+static UIImage *drawTile(CGFloat side, const CGFloat grad[8], void (^content)(CGContextRef ctx))
+{
+    UIGraphicsBeginImageContextWithOptions(CGSizeMake(side, side), NO, screenScale);
+    CGContextRef ctx = UIGraphicsGetCurrentContext();
+    CGFloat radius = side * 0.18f;
+    CGRect r = CGRectMake(1.0f, 1.0f, side - 2.0f, side - 2.0f);
+    UIBezierPath *shape = [UIBezierPath bezierPathWithRoundedRect:r cornerRadius:radius];
+    CGContextSaveGState(ctx);
+    [shape addClip];
+    gradientFill(ctx, r, grad);
+    if (content) content(ctx);
+    CGContextSetRGBFillColor(ctx, 1.0f, 1.0f, 1.0f, 0.22f);          /* szklany połysk */
+    CGContextFillRect(ctx, CGRectMake(0, 0, side, side * 0.5f));
     CGContextRestoreGState(ctx);
-
-    [[UIColor colorWithRed:0.43f green:0.34f blue:0.25f alpha:1.0f] setStroke];
+    [[UIColor colorWithRed:0.03f green:0.05f blue:0.11f alpha:0.95f] setStroke];
     shape.lineWidth = 1.0f;
     [shape stroke];
     UIImage *out = UIGraphicsGetImageFromCurrentImageContext();
@@ -75,24 +62,106 @@ static UIImage *composeTile(UIImage *logo)
     return out;
 }
 
-UIImage *M3UPlaceholderTile(void)
+static UIImage *composeLogoTile(UIImage *logo, CGFloat side)
 {
-    setup();
-    if (!placeholder) placeholder = composeTile(nil);
-    return placeholder;
+    static const CGFloat plate[8] = { 1.0f, 1.0f, 1.0f, 1.0f,  0.84f, 0.87f, 0.93f, 1.0f };
+    return drawTile(side, plate, ^(CGContextRef ctx) {
+        if (logo.size.width <= 0 || logo.size.height <= 0) return;
+        CGFloat box = side - side * 0.26f;
+        CGFloat kx = box / logo.size.width, ky = box / logo.size.height;
+        CGFloat k = kx < ky ? kx : ky;
+        CGSize sz = CGSizeMake(logo.size.width * k, logo.size.height * k);
+        CGContextSetInterpolationQuality(ctx, kCGInterpolationHigh);
+        [logo drawInRect:CGRectMake((side - sz.width) / 2.0f, (side - sz.height) / 2.0f, sz.width, sz.height)];
+    });
 }
 
-UIImage *M3UCachedLogoTile(NSString *url)
+static NSString *initials(NSString *name)
+{
+    NSMutableString *out = [NSMutableString string];
+    NSArray *words = [name componentsSeparatedByCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    NSCharacterSet *alnum = [NSCharacterSet alphanumericCharacterSet];
+    NSMutableArray *usable = [NSMutableArray array];
+    for (NSString *w in words) {
+        for (NSUInteger i = 0; i < [w length]; i++) {
+            if ([alnum characterIsMember:[w characterAtIndex:i]]) { [usable addObject:[w substringFromIndex:i]]; break; }
+        }
+    }
+    if ([usable count] >= 2) {
+        [out appendString:[[usable objectAtIndex:0] substringToIndex:1]];
+        [out appendString:[[usable objectAtIndex:1] substringToIndex:1]];
+    } else if ([usable count] == 1) {
+        NSString *w = [usable objectAtIndex:0];
+        [out appendString:[w substringToIndex:MIN((NSUInteger)2, [w length])]];
+    } else {
+        [out appendString:@"TV"];
+    }
+    return [out uppercaseString];
+}
+
+UIImage *M3UMonogramTile(NSString *name, CGFloat side)
 {
     setup();
-    return url ? [memory objectForKey:url] : nil;
+    NSString *k = key(side, name ?: @"");
+    UIImage *cached = [monograms objectForKey:k];
+    if (cached) return cached;
+
+    /* paleta dobrana do granatowego motywu; kolor wynika z nazwy, więc kanał zawsze ma ten sam */
+    static const CGFloat palettes[8][8] = {
+        { 0.36f, 0.56f, 0.92f, 1.0f,  0.14f, 0.29f, 0.66f, 1.0f },   /* niebieski */
+        { 0.22f, 0.68f, 0.72f, 1.0f,  0.07f, 0.38f, 0.46f, 1.0f },   /* turkus */
+        { 0.46f, 0.50f, 0.90f, 1.0f,  0.20f, 0.22f, 0.60f, 1.0f },   /* indygo */
+        { 0.60f, 0.42f, 0.84f, 1.0f,  0.32f, 0.18f, 0.58f, 1.0f },   /* fiolet */
+        { 0.42f, 0.55f, 0.68f, 1.0f,  0.20f, 0.29f, 0.42f, 1.0f },   /* stal */
+        { 0.26f, 0.66f, 0.52f, 1.0f,  0.08f, 0.38f, 0.30f, 1.0f },   /* morski */
+        { 0.78f, 0.38f, 0.58f, 1.0f,  0.48f, 0.15f, 0.34f, 1.0f },   /* malina */
+        { 0.86f, 0.60f, 0.26f, 1.0f,  0.56f, 0.34f, 0.08f, 1.0f },   /* bursztyn */
+    };
+    unsigned long h = 5381;
+    const char *c = [name UTF8String];
+    while (c && *c) h = h * 33 + (unsigned char)*c++;
+    const CGFloat *pal = palettes[h % 8];
+    NSString *text = initials(name);
+    UIFont *font = [UIFont boldSystemFontOfSize:side * 0.38f];
+    UIImage *img = drawTile(side, pal, ^(CGContextRef ctx) {
+        CGSize ts = [text sizeWithFont:font];
+        CGRect tr = CGRectMake(0, (side - ts.height) / 2.0f - 1.0f, side, ts.height);
+        CGContextSetRGBFillColor(ctx, 0, 0, 0, 0.45f);
+        [text drawInRect:CGRectOffset(tr, 0, 1.0f) withFont:font lineBreakMode:NSLineBreakByClipping alignment:NSTextAlignmentCenter];
+        CGContextSetRGBFillColor(ctx, 1, 1, 1, 0.96f);
+        [text drawInRect:tr withFont:font lineBreakMode:NSLineBreakByClipping alignment:NSTextAlignmentCenter];
+    });
+    if ([monograms count] >= 400) [monograms removeAllObjects];
+    [monograms setObject:img forKey:k];
+    return img;
+}
+
+#pragma mark - Pamięć i status
+
+UIImage *M3UCachedLogoTile(NSString *url, CGFloat side)
+{
+    setup();
+    return [url length] ? [tiles objectForKey:key(side, url)] : nil;
 }
 
 BOOL M3ULogoFailed(NSString *url)
 {
     setup();
-    return url && [failed containsObject:url];
+    return [url length] && [failed objectForKey:url] != nil;
 }
+
+NSString *M3ULogoStatus(NSString *url)
+{
+    setup();
+    if (![url length]) return @"ta lista nie podaje logo dla tego kanału";
+    NSString *why = [failed objectForKey:url];
+    if (why) return [@"nie pobrano: " stringByAppendingString:why];
+    for (NSString *k in [tiles allKeys]) if ([k hasSuffix:[@"|" stringByAppendingString:url]]) return @"pobrane";
+    for (NSString *k in inflight) if ([k hasSuffix:[@"|" stringByAppendingString:url]]) return @"pobieranie…";
+    return @"jeszcze nie pobierano (pojawi się po przewinięciu do kanału)";
+}
+
+#pragma mark - Pobieranie
 
 static NSString *diskPath(NSString *url)
 {
@@ -105,50 +174,75 @@ static NSString *diskPath(NSString *url)
     return [dir stringByAppendingPathComponent:[NSString stringWithFormat:@"%lx.img", h]];
 }
 
-/* Pobiera bajty logo; klasy sieciowe po nazwie (patrz M3UList.m). */
-static NSData *download(NSString *urlString)
+/* Jedna próba pobrania. Klasy sieciowe po nazwie (patrz M3UList.m). */
+static NSData *attempt(NSString *urlString, NSString **why)
 {
     NSURL *u = [NSURL URLWithString:urlString];
     NSString *scheme = [[u scheme] lowercaseString];
-    if (!u || !([scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"])) return nil;
+    if (!u || !([scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"])) { *why = @"adres nie jest http(s)"; return nil; }
     Class reqClass = NSClassFromString(@"NSMutableURLRequest");
     Class connClass = NSClassFromString(@"NSURLConnection");
-    if (!reqClass || !connClass) return nil;
+    Class httpClass = NSClassFromString(@"NSHTTPURLResponse");
+    if (!reqClass || !connClass || !httpClass) { *why = @"brak funkcji sieciowych"; return nil; }
     NSMutableURLRequest *req = [reqClass requestWithURL:u cachePolicy:NSURLRequestUseProtocolCachePolicy timeoutInterval:15.0];
     NSURLResponse *resp = nil;
     NSError *err = nil;
     NSData *d = [connClass sendSynchronousRequest:req returningResponse:&resp error:&err];
-    return (d && [d length] <= kMaxBytes) ? d : nil;
+    NSInteger code = [resp isKindOfClass:httpClass] ? [(NSHTTPURLResponse *)resp statusCode] : 0;
+    if (!d) {
+        NSInteger c = [err code];
+        if ([[err domain] isEqualToString:@"NSURLErrorDomain"] && c <= -1200 && c >= -1206) *why = @"połączenie https nie powiodło się (stare SSL w iOS 6)";
+        else *why = [err localizedDescription] ?: @"brak odpowiedzi";
+        return nil;
+    }
+    if (code >= 400) { *why = [NSString stringWithFormat:@"serwer zwrócił błąd %d", (int)code]; return nil; }
+    if ([d length] > kMaxBytes) { *why = @"plik jest za duży"; return nil; }
+    return d;
 }
 
-void M3URequestLogo(NSString *url, BOOL (^stillNeeded)(void))
+/* Najpierw adres z listy, a przy https dodatkowo wersja http (iOS 6 często nie dogaduje się z nowym SSL). */
+static NSData *download(NSString *url, NSString **why)
+{
+    NSData *d = attempt(url, why);
+    if (!d && [[url lowercaseString] hasPrefix:@"https://"]) {
+        NSString *w2 = nil;
+        d = attempt([@"http://" stringByAppendingString:[url substringFromIndex:8]], &w2);
+        if (d) *why = nil;
+    }
+    return d;
+}
+
+void M3URequestLogo(NSString *url, CGFloat side, BOOL (^stillNeeded)(void))
 {
     setup();
-    if (![url length] || [memory objectForKey:url] || [failed containsObject:url] || [inflight containsObject:url]) return;
-    [inflight addObject:url];
+    NSString *k = key(side, url ?: @"");
+    if (![url length] || [tiles objectForKey:k] || [failed objectForKey:url] || [inflight containsObject:k]) return;
+    [inflight addObject:k];
     [queue addOperationWithBlock:^{
         __block BOOL needed = YES;
         if (stillNeeded) dispatch_sync(dispatch_get_main_queue(), ^{ needed = stillNeeded(); });
         if (!needed) {
-            dispatch_async(dispatch_get_main_queue(), ^{ [inflight removeObject:url]; });
+            dispatch_async(dispatch_get_main_queue(), ^{ [inflight removeObject:k]; });
             return;
         }
         @autoreleasepool {
             NSString *path = diskPath(url);
             NSData *data = [NSData dataWithContentsOfFile:path];
+            NSString *why = nil;
             if (!data) {
-                data = download(url);
-                if (data) [data writeToFile:path atomically:YES];
+                data = download(url, &why);
+                if (data && [UIImage imageWithData:data]) [data writeToFile:path atomically:YES];
             }
             UIImage *logo = data ? [UIImage imageWithData:data] : nil;
-            UIImage *tile = logo ? composeTile(logo) : nil;
+            if (data && !logo) why = @"to nie jest obraz obsługiwany przez iOS 6 (np. WebP albo SVG)";
+            UIImage *tile = logo ? composeLogoTile(logo, side) : nil;
             dispatch_async(dispatch_get_main_queue(), ^{
-                [inflight removeObject:url];
+                [inflight removeObject:k];
                 if (tile) {
-                    if ([memory count] >= 250) [memory removeAllObjects];   /* proste ograniczenie pamięci */
-                    [memory setObject:tile forKey:url];
+                    if ([tiles count] >= 250) [tiles removeAllObjects];
+                    [tiles setObject:tile forKey:k];
                 } else {
-                    [failed addObject:url];
+                    [failed setObject:(why ?: @"nieznany błąd") forKey:url];
                 }
                 [[NSNotificationCenter defaultCenter] postNotificationName:M3ULogoDidLoad object:nil];
             });

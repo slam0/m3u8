@@ -40,6 +40,11 @@ int main(void)
     CHECK(parse("#EXTINF:-1 GROUP-TITLE=\"A\",Jeden\nhttp://a/1\nhttp://a/2\n") == 2);
     CHECK(!strcmp(E[0].g, "A") && E[1].g[0] == 0 && !strcmp(E[1].n, "http://a/2"));
 
+    /* inne nazwy atrybutu z logo */
+    CHECK(parse("#EXTINF:-1 tvg_logo=\"http://a/1.png\",A\nhttp://x/1\n#EXTINF:-1 icon=\"http://a/2.png\",B\nhttp://x/2\n"
+                "#EXTINF:-1 tvg-logo-small=\"http://a/s.png\" tvg-logo=\"http://a/b.png\",C\nhttp://x/3\n") == 3);
+    CHECK(!strcmp(E[0].l, "http://a/1.png") && !strcmp(E[1].l, "http://a/2.png") && !strcmp(E[2].l, "http://a/b.png"));
+
     /* śmieci: linie bez adresu pomijamy; pusty tekst */
     CHECK(parse("#EXTM3U\nto nie jest adres\n") == 0);
     CHECK(parse("") == 0);

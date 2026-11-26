@@ -10,7 +10,7 @@
 
 - (id)init
 {
-    self = [super initWithStyle:UITableViewStyleGrouped];
+    self = [super initWithStyle:UITableViewStylePlain];
     if (self) self.title = @"Nowa playlista";
     return self;
 }
@@ -24,6 +24,7 @@
     f.autocapitalizationType = UITextAutocapitalizationTypeNone;
     f.clearButtonMode = UITextFieldViewModeWhileEditing;
     f.font = [UIFont systemFontOfSize:15];
+    f.keyboardAppearance = UIKeyboardAppearanceAlert;
     f.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     return f;
 }
@@ -84,12 +85,17 @@
 
 - (CGFloat)tableView:(UITableView *)tv heightForFooterInSection:(NSInteger)s
 {
-    return s == 0 ? M3UFooterHeight(@"Adres playlisty skopiujesz np. z panelu swojego dostawcy IPTV.", tv.bounds.size.width) : 8.0f;
+    return s == 0 ? M3UFooterHeight(@"Adres playlisty skopiujesz np. z panelu swojego dostawcy IPTV.", tv.bounds.size.width) : 0.0f;
 }
 
-- (void)tableView:(UITableView *)tv willDisplayCell:(UITableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)ip
+- (UIView *)tableView:(UITableView *)tv viewForHeaderInSection:(NSInteger)s
 {
-    M3UPaperCell(cell);
+    return s == 0 ? M3UHeaderView(@"Dane playlisty") : nil;
+}
+
+- (CGFloat)tableView:(UITableView *)tv heightForHeaderInSection:(NSInteger)s
+{
+    return s == 0 ? 22.0f : 14.0f;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip
@@ -99,13 +105,14 @@
     if (ip.section == 1) {
         cell.textLabel.text = @"Wklej adres ze schowka";
         cell.textLabel.textAlignment = NSTextAlignmentCenter;
+        cell.textLabel.textColor = M3UAccentColor();
         return cell;
     }
     cell.selectionStyle = UITableViewCellSelectionStyleNone;
     UITextField *f = ip.row == 0 ? self.nameField : self.urlField;
     cell.textLabel.text = ip.row == 0 ? @"Nazwa" : @"Adres";
     cell.textLabel.font = [UIFont boldSystemFontOfSize:15];
-    f.textColor = M3UBrown();
+    f.textColor = M3UTextColor();
     CGRect fr = f.frame;
     fr.size.width = tv.bounds.size.width - 110 - 40;
     f.frame = fr;

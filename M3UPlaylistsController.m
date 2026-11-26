@@ -13,7 +13,7 @@
 
 - (id)init
 {
-    self = [super initWithStyle:UITableViewStyleGrouped];
+    self = [super initWithStyle:UITableViewStylePlain];
     if (self) self.title = @"Czytnik M3U";
     return self;
 }
@@ -23,6 +23,7 @@
     [super viewDidLoad];
     M3UStyleTable(self.tableView);
     self.tableView.rowHeight = 56.0f;
+    self.navigationItem.backBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"Wstecz" style:UIBarButtonItemStyleBordered target:nil action:nil];
     self.navigationItem.leftBarButtonItem = self.editButtonItem;
     self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd
                                                                                            target:self action:@selector(addTapped)];
@@ -102,7 +103,7 @@
 
 - (CGFloat)tableView:(UITableView *)tv heightForHeaderInSection:(NSInteger)s
 {
-    return [self headerText:s] ? 22.0f : 12.0f;
+    return [self headerText:s] ? 22.0f : 0.0f;
 }
 
 - (UIView *)tableView:(UITableView *)tv viewForFooterInSection:(NSInteger)s
@@ -114,12 +115,7 @@
 - (CGFloat)tableView:(UITableView *)tv heightForFooterInSection:(NSInteger)s
 {
     NSString *t = [self footerText:s];
-    return t ? M3UFooterHeight(t, tv.bounds.size.width) : 8.0f;
-}
-
-- (void)tableView:(UITableView *)tv willDisplayCell:(UITableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)ip
-{
-    M3UPaperCell(cell);
+    return t ? M3UFooterHeight(t, tv.bounds.size.width) : 0.0f;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip
@@ -130,14 +126,17 @@
     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     M3UStyleCell(cell);
     if (ip.section == 0) {
-        cell.textLabel.text = @"★ Ulubione";
+        cell.imageView.image = M3UGlyphTile(0, 40.0f);
+        cell.textLabel.text = @"Ulubione";
         cell.detailTextLabel.text = [NSString stringWithFormat:@"Kanałów: %lu", (unsigned long)[M3UFavorites() count]];
     } else if (ip.section == 1) {
         NSDictionary *d = [self.playlists objectAtIndex:(NSUInteger)ip.row];
+        cell.imageView.image = M3UGlyphTile(1, 40.0f);
         cell.textLabel.text = [d objectForKey:@"name"];
         cell.detailTextLabel.text = [d objectForKey:@"url"];
     } else {
         NSString *f = [self.files objectAtIndex:(NSUInteger)ip.row];
+        cell.imageView.image = M3UGlyphTile(2, 40.0f);
         cell.textLabel.text = f;
         cell.detailTextLabel.text = @"plik w aplikacji";
     }

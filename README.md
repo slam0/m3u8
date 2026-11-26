@@ -8,5 +8,5 @@ wyszukiwarka, ulubione i odtwarzanie HLS przez natywny odtwarzacz.
 - Budowanie: Theos + GitHub Actions (`.github/workflows/build.yml`), identycznie jak w Rozkładzie.
 - Ograniczenia: tylko HLS (H.264) przez http/https. Szczegóły w `CZYTAJ-TO.txt`.
 
-- Wygląd: tekstury (skóra, len, papier, guziki, ikona) generuje `python3 tools/make_assets.py` do `Resources/`.
+- Wygląd: tekstury (ciemny len, granatowe paski, guziki, karty, ikona) generuje `python3 tools/make_assets.py` do `Resources/`.
 - Ikonki kanałów: `M3ULogos.m` (kolejka 3 połączeń, cache na dysku i w pamięci).

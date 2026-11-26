@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
-"""Generuje tekstury i ikony w stylu skeuomorficznym (skóra, len, papier, guziki).
+"""Generuje tekstury i ikony w ciemnogranatowym stylu skeuomorficznym (iOS 6):
+ciemny len, błyszczące granatowe paski i guziki, karty kafelków.
 Użycie: python3 tools/make_assets.py   (zapisuje do Resources/)"""
 import os
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'Resources')
-rng = np.random.default_rng(6)
+rng = np.random.default_rng(11)
+SS = 4
 
 
+# ---------- narzędzia ----------
 def blur(a, sx, sy=None):
     """Rozmycie gaussowskie przez FFT; brzegi zawijane, więc tekstury łączą się bez szwów."""
     sy = sx if sy is None else sy
@@ -24,108 +27,82 @@ def norm(a):
     return a / (a.std() + 1e-9)
 
 
-def emboss(height, strength=1.0):
-    dx = np.roll(height, -1, 1) - np.roll(height, 1, 1)
-    dy = np.roll(height, -1, 0) - np.roll(height, 1, 0)
-    return (-(dx + dy) * strength)
+def vgrad(h, top, bottom):
+    t = np.linspace(0, 1, h)[:, None, None]
+    return np.array(top, float)[None, None, :] * (1 - t) + np.array(bottom, float)[None, None, :] * t
 
 
-def colorize(light, base, amount):
-    base = np.array(base, dtype=float)
-    img = base[None, None, :] * (1.0 + amount * light[:, :, None])
-    return np.clip(img, 0, 255)
+def grad_img(w, h, top, bottom):
+    return Image.fromarray(np.repeat(vgrad(h, top, bottom), w, axis=1).astype(np.uint8), 'RGB')
 
 
-def to_img(arr):
-    return Image.fromarray(arr.astype(np.uint8), 'RGB')
-
-
-def save(img, name, scale2=True):
+def save2x(img, name):
     """img jest w skali @2x; zapisujemy @2x i pomniejszoną wersję 1x."""
     img.save(os.path.join(OUT, name + '@2x.png'))
     w, h = img.size
     img.resize((max(1, w // 2), max(1, h // 2)), Image.LANCZOS).save(os.path.join(OUT, name + '.png'))
 
 
-def leather(w, h, base, seed_shift=0, amount=0.55):
-    n = norm(rng.standard_normal((h, w)))
-    bump = blur(n, 1.3) + 0.5 * blur(n, 3.0)
-    bump = norm(bump)
-    light = np.clip(emboss(bump, 0.9), -2, 2) * 0.5
-    grain = norm(blur(rng.standard_normal((h, w)), 0.6)) * 0.08
-    return colorize(light + grain, base, amount * 0.5)
+def hline(img, y, color, h=2, alpha=1.0):
+    ov = Image.new('RGBA', img.size, (0, 0, 0, 0))
+    ImageDraw.Draw(ov).rectangle((0, y, img.size[0], y + h - 1), fill=color + (int(255 * alpha),))
+    base = img.convert('RGBA')
+    return Image.alpha_composite(base, ov).convert('RGB')
 
 
-def vgrad(h, top, bottom):
-    t = np.linspace(0, 1, h)[:, None, None]
-    return np.array(top, float)[None, None, :] * (1 - t) + np.array(bottom, float)[None, None, :] * t
+def brushed(w, h, amount=0.05):
+    n = norm(blur(rng.standard_normal((h, w)), 8.0, 0.5))
+    return 1.0 + amount * n
 
 
-def stitch(img, y, color=(236, 218, 168), dash=12, gap=8, th=3, x0=0, x1=None):
-    d = ImageDraw.Draw(img)
-    x1 = img.size[0] if x1 is None else x1
-    x = x0
-    while x < x1:
-        d.rectangle((x, y + 2, x + dash - 1, y + 2 + th - 1), fill=(24, 14, 8))      # cień pod nitką
-        d.rectangle((x, y, x + dash - 1, y + th - 1), fill=color)
-        x += dash + gap
-
-
-# ---------- paski ze skóry ----------
-def nav_bar():
-    w, h = 640, 88
-    L = leather(w, h, (86, 58, 40))
-    g = vgrad(h, (1.28, 1.28, 1.28), (0.78, 0.78, 0.78))
-    arr = np.clip(L * g, 0, 255)
-    img = to_img(arr)
-    d = ImageDraw.Draw(img)
-    d.rectangle((0, 0, w, 1), fill=(150, 112, 86))            # jasna krawędź u góry
-    d.rectangle((0, h - 3, w, h - 1), fill=(22, 13, 8))        # ciemna krawędź na dole
-    stitch(img, h - 15)
-    save(img, 'nav_leather')
-
-
-def header_strip():
-    w, h = 640, 44
-    L = leather(w, h, (66, 46, 34))
-    arr = np.clip(L * vgrad(h, (1.18, 1.18, 1.18), (0.82, 0.82, 0.82)), 0, 255)
-    img = to_img(arr)
-    d = ImageDraw.Draw(img)
-    d.rectangle((0, 0, w, 1), fill=(128, 96, 74))
-    d.rectangle((0, h - 2, w, h - 1), fill=(20, 12, 8))
-    save(img, 'header_leather')
-
-
-# ---------- tekstury tła ----------
+# ---------- tła i paski ----------
 def linen():
     s = 256
-    a = norm(rng.standard_normal((s, s)))
-    horiz = norm(blur(a, 7.0, 0.55))
-    b = norm(rng.standard_normal((s, s)))
-    vert = norm(blur(b, 0.55, 7.0))
+    horiz = norm(blur(norm(rng.standard_normal((s, s))), 7.0, 0.55))
+    vert = norm(blur(norm(rng.standard_normal((s, s))), 0.55, 7.0))
     yy, xx = np.mgrid[0:s, 0:s]
     mask = (((xx // 4) + (yy // 4)) % 2) == 0
     t = np.where(mask, horiz, vert)
     t = norm(t + 0.35 * norm(blur(rng.standard_normal((s, s)), 0.5)))
-    to_img(colorize(t * 0.5, (212, 202, 180), 0.10)).save(os.path.join(OUT, 'bg_linen@2x.png'))
-    img = to_img(colorize(t * 0.5, (212, 202, 180), 0.10))
+    base = np.array((20, 28, 46), float)
+    arr = np.clip(base[None, None, :] * (1.0 + 0.16 * t[:, :, None]), 0, 255)
+    img = Image.fromarray(arr.astype(np.uint8), 'RGB')
+    img.save(os.path.join(OUT, 'bg_linen@2x.png'))
     img.resize((s // 2, s // 2), Image.LANCZOS).save(os.path.join(OUT, 'bg_linen.png'))
 
 
-def paper():
-    s = 256
-    n = norm(blur(rng.standard_normal((s, s)), 0.7))
-    fib = norm(blur(rng.standard_normal((s, s)), 3.0, 0.4))
-    t = 0.7 * n + 0.3 * fib
-    img = to_img(colorize(t * 0.5, (249, 243, 228), 0.025))
-    img.save(os.path.join(OUT, 'bg_paper@2x.png'))
-    img.resize((s // 2, s // 2), Image.LANCZOS).save(os.path.join(OUT, 'bg_paper.png'))
+def nav_bar():
+    w, h = 640, 88
+    g = vgrad(h, (62, 90, 146), (16, 26, 58))
+    arr = np.clip(g * brushed(w, h)[:, :, None], 0, 255)
+    img = Image.fromarray(arr.astype(np.uint8), 'RGB')
+    gloss = Image.new('L', (w, h), 0)
+    ImageDraw.Draw(gloss).rectangle((0, 0, w, h // 2), fill=26)
+    img = Image.composite(Image.new('RGB', (w, h), (255, 255, 255)), img, gloss)
+    img = hline(img, 0, (150, 180, 236), 2, 0.9)
+    img = hline(img, h - 6, (40, 100, 205), 2, 0.9)       # niebieska żyłka
+    img = hline(img, h - 4, (4, 8, 20), 4, 1.0)           # ciemny cień pod paskiem
+    save2x(img, 'nav_bar')
 
 
-# ---------- guziki ----------
-SS = 4
+def strip(name, top, bottom, light, dark):
+    w, h = 640, 44
+    arr = np.clip(vgrad(h, top, bottom) * brushed(w, h, 0.04)[:, :, None], 0, 255)
+    img = Image.fromarray(arr.astype(np.uint8), 'RGB')
+    img = hline(img, 0, light, 2)
+    img = hline(img, h - 2, dark, 2)
+    save2x(img, name)
 
 
+def stretch_row(name, top, bottom, light, dark, w=8, h=120):
+    img = grad_img(w, h, top, bottom)
+    img = hline(img, 0, light, 2)
+    img = hline(img, 2, (255, 255, 255), 1, 0.04)
+    img = hline(img, h - 2, dark, 2)
+    save2x(img, name)
+
+
+# ---------- guziki i karty ----------
 def mask_rounded(w, h, r):
     m = Image.new('L', (w * SS, h * SS), 0)
     ImageDraw.Draw(m).rounded_rectangle((0, 0, w * SS - 1, h * SS - 1), radius=r * SS, fill=255)
@@ -142,25 +119,20 @@ def mask_back(w, h, tip, r):
     return m.filter(ImageFilter.GaussianBlur(SS * 0.6))
 
 
-def button(mask, w, h, top, bottom, name, border=(24, 14, 8)):
+def glossy(mask, w, h, top, bottom, name, border, rim, gloss=44, border_px=2):
     big = mask
     W, H = w * SS, h * SS
-    body = Image.fromarray(np.repeat(vgrad(H, top, bottom), W, axis=1).astype(np.uint8), 'RGB')
-    gloss = Image.new('L', (W, H), 0)
-    gd = ImageDraw.Draw(gloss)
-    gd.rectangle((0, 0, W, H // 2), fill=46)
-    body = Image.composite(Image.new('RGB', (W, H), (255, 255, 255)), body, gloss)
-    # obrys: maska minus jej zmniejszona wersja
-    inner = big.filter(ImageFilter.MinFilter(2 * SS + 1))
+    body = grad_img(W, H, top, bottom)
+    gl = Image.new('L', (W, H), 0)
+    ImageDraw.Draw(gl).rectangle((0, 0, W, int(H * 0.48)), fill=gloss)
+    body = Image.composite(Image.new('RGB', (W, H), (255, 255, 255)), body, gl)
+    inner = big.filter(ImageFilter.MinFilter(border_px * SS + 1))
     border_mask = Image.fromarray(np.clip(np.array(big, int) - np.array(inner, int), 0, 255).astype(np.uint8))
     body = Image.composite(Image.new('RGB', (W, H), border), body, border_mask)
-    # jasny wewnętrzny rant u góry
-    rim = Image.new('L', (W, H), 0)
     rim_in = inner.filter(ImageFilter.MinFilter(SS + 1))
     top_rim = np.clip(np.array(inner, int) - np.array(rim_in, int), 0, 255)
     top_rim[H // 3:, :] = 0
-    body = Image.composite(Image.new('RGB', (W, H), (190, 150, 120)), body,
-                           Image.fromarray((top_rim * 0.5).astype(np.uint8)))
+    body = Image.composite(Image.new('RGB', (W, H), rim), body, Image.fromarray((top_rim * 0.6).astype(np.uint8)))
     rgba = body.convert('RGBA')
     rgba.putalpha(big)
     rgba = rgba.resize((w, h), Image.LANCZOS)
@@ -171,50 +143,73 @@ def button(mask, w, h, top, bottom, name, border=(24, 14, 8)):
 def buttons():
     w, h = 60, 60
     m = mask_rounded(w, h, 10)
-    button(m, w, h, (112, 82, 64), (58, 40, 30), 'btn_bar')
-    button(m, w, h, (70, 50, 38), (38, 26, 20), 'btn_bar_pressed')
+    glossy(m, w, h, (96, 128, 190), (30, 48, 100), 'btn_bar', (6, 10, 24), (176, 200, 244))
+    glossy(m, w, h, (50, 72, 130), (16, 26, 60), 'btn_bar_pressed', (6, 10, 24), (110, 140, 200), gloss=20)
     wb = 76
     mb = mask_back(wb, h, 26, 9)
-    button(mb, wb, h, (112, 82, 64), (58, 40, 30), 'btn_back')
-    button(mb, wb, h, (70, 50, 38), (38, 26, 20), 'btn_back_pressed')
+    glossy(mb, wb, h, (96, 128, 190), (30, 48, 100), 'btn_back', (6, 10, 24), (176, 200, 244))
+    glossy(mb, wb, h, (50, 72, 130), (16, 26, 60), 'btn_back_pressed', (6, 10, 24), (110, 140, 200), gloss=20)
 
 
-# ---------- ikona i ekrany startowe ----------
+def tile_card():
+    w, h = 192, 240
+    glossy(mask_rounded(w, h, 18), w, h, (46, 64, 106), (22, 32, 62), 'tile_card', (5, 9, 20), (112, 140, 196), gloss=22)
+
+
+def icons_bar():
+    """Białe glify na przyciski paska: lista i kafelki (maska alfa)."""
+    s = 44
+    big = Image.new('RGBA', (s * SS, s * SS), (0, 0, 0, 0))
+    d = ImageDraw.Draw(big)
+    for i in range(3):
+        y = (9 + i * 11) * SS
+        d.rounded_rectangle((6 * SS, y, 11 * SS, y + 5 * SS), radius=SS, fill=(255, 255, 255, 255))
+        d.rounded_rectangle((14 * SS, y, 38 * SS, y + 5 * SS), radius=SS, fill=(255, 255, 255, 255))
+    big.resize((s, s), Image.LANCZOS).save(os.path.join(OUT, 'ico_list@2x.png'))
+    big.resize((s // 2, s // 2), Image.LANCZOS).save(os.path.join(OUT, 'ico_list.png'))
+    big = Image.new('RGBA', (s * SS, s * SS), (0, 0, 0, 0))
+    d = ImageDraw.Draw(big)
+    for r in range(2):
+        for c in range(2):
+            x, y = (7 + c * 16) * SS, (7 + r * 16) * SS
+            d.rounded_rectangle((x, y, x + 14 * SS, y + 14 * SS), radius=3 * SS, fill=(255, 255, 255, 255))
+    big.resize((s, s), Image.LANCZOS).save(os.path.join(OUT, 'ico_grid@2x.png'))
+    big.resize((s // 2, s // 2), Image.LANCZOS).save(os.path.join(OUT, 'ico_grid.png'))
+
+
+# ---------- ikona aplikacji i ekrany startowe ----------
 def icon_1024():
     S = 1024
-    L = leather(S, S, (92, 62, 44), amount=0.6)
-    img = to_img(np.clip(L * vgrad(S, (1.12,) * 3, (0.86,) * 3), 0, 255)).convert('RGBA')
-    big = Image.new('RGBA', (S * 2, S * 2), (0, 0, 0, 0))   # rysujemy w 2x, by obrysy były gładkie
+    n = norm(rng.standard_normal((S, S)))
+    t = norm(blur(n, 0.7))
+    arr = np.clip(vgrad(S, (40, 60, 108), (14, 22, 48)) * (1.0 + 0.05 * t[:, :, None]), 0, 255)
+    img = Image.fromarray(arr.astype(np.uint8), 'RGB').convert('RGBA')
+    big = Image.new('RGBA', (S * 2, S * 2), (0, 0, 0, 0))
     d = ImageDraw.Draw(big)
-    # anteny
-    d.line((S * 0.80, S * 0.40, S * 1.0, S * 0.18), fill=(30, 20, 14, 255), width=22)
-    d.line((S * 1.2, S * 0.40, S * 1.0, S * 0.18), fill=(30, 20, 14, 255), width=22)
-    # korpus (drewno) i ekran
-    d.rounded_rectangle((S * 0.30, S * 0.50, S * 1.70, S * 1.60), radius=150, fill=(34, 22, 15, 255))
-    d.rounded_rectangle((S * 0.34, S * 0.54, S * 1.66, S * 1.56), radius=140, fill=(150, 104, 66, 255))
-    d.rounded_rectangle((S * 0.44, S * 0.64, S * 1.56, S * 1.46), radius=100, fill=(20, 26, 36, 255))
-    scr = Image.new('RGBA', big.size, (0, 0, 0, 0))
-    sd = ImageDraw.Draw(scr)
-    sd.rounded_rectangle((S * 0.46, S * 0.66, S * 1.54, S * 1.44), radius=92, fill=(46, 74, 104, 255))
-    sd.rounded_rectangle((S * 0.46, S * 0.66, S * 1.54, S * 1.05), radius=92, fill=(86, 122, 158, 255))
-    mask = Image.new('L', big.size, 0)
-    ImageDraw.Draw(mask).rounded_rectangle((S * 0.46, S * 0.66, S * 1.54, S * 1.44), radius=92, fill=255)
-    big = Image.alpha_composite(big, Image.composite(scr, Image.new('RGBA', big.size, (0, 0, 0, 0)), mask))
+    d.line((S * 0.86, S * 0.44, S * 1.02, S * 0.16), fill=(190, 205, 230, 255), width=22)
+    d.line((S * 1.18, S * 0.44, S * 1.02, S * 0.16), fill=(190, 205, 230, 255), width=22)
+    d.rounded_rectangle((S * 0.26, S * 0.46, S * 1.74, S * 1.64), radius=170, fill=(6, 10, 22, 255))
+    frame = Image.new('RGBA', big.size, (0, 0, 0, 0))
+    frame.paste(Image.fromarray(np.repeat(vgrad(big.size[1], (236, 240, 248), (150, 160, 184)), big.size[0], axis=1).astype(np.uint8), 'RGB'))
+    fm = Image.new('L', big.size, 0)
+    ImageDraw.Draw(fm).rounded_rectangle((S * 0.29, S * 0.49, S * 1.71, S * 1.61), radius=158, fill=255)
+    big = Image.composite(frame, big, fm)
     d = ImageDraw.Draw(big)
-    d.polygon([(S * 0.86, S * 0.84), (S * 0.86, S * 1.26), (S * 1.18, S * 1.05)], fill=(250, 240, 214, 255))
-    # guziki
-    for i, y in enumerate((0.78, 0.98)):
-        d.ellipse((S * 1.60 - 4, S * y * 1.0, S * 1.60 + 26, S * y * 1.0 + 30), fill=(30, 20, 14, 255))
+    d.rounded_rectangle((S * 0.40, S * 0.60, S * 1.60, S * 1.50), radius=110, fill=(8, 14, 30, 255))
+    scr = Image.fromarray(np.repeat(vgrad(big.size[1], (96, 168, 255), (22, 64, 160)), big.size[0], axis=1).astype(np.uint8), 'RGB').convert('RGBA')
+    sm = Image.new('L', big.size, 0)
+    ImageDraw.Draw(sm).rounded_rectangle((S * 0.42, S * 0.62, S * 1.58, S * 1.48), radius=100, fill=255)
+    big = Image.composite(scr, big, sm)
+    d = ImageDraw.Draw(big)
+    d.polygon([(S * 0.88, S * 0.86), (S * 0.88, S * 1.24), (S * 1.20, S * 1.05)], fill=(250, 252, 255, 255))
+    gl = Image.new('RGBA', big.size, (0, 0, 0, 0))
+    ImageDraw.Draw(gl).rounded_rectangle((S * 0.42, S * 0.62, S * 1.58, S * 1.02), radius=100, fill=(255, 255, 255, 46))
+    gm = Image.new('L', big.size, 0)
+    ImageDraw.Draw(gm).rounded_rectangle((S * 0.42, S * 0.62, S * 1.58, S * 1.48), radius=100, fill=255)
+    gl.putalpha(Image.fromarray((np.array(gl.split()[3], int) * np.array(gm, int) // 255).astype(np.uint8)))
+    big = Image.alpha_composite(big, gl)
     big = big.resize((S, S), Image.LANCZOS)
     img = Image.alpha_composite(img, big)
-    d = ImageDraw.Draw(img)
-    # ręcznie szyty obrys wokół ikony
-    for x in range(60, S - 60, 36):
-        d.rectangle((x, 44, x + 20, 50), fill=(236, 218, 168, 255))
-        d.rectangle((x, S - 50, x + 20, S - 44), fill=(236, 218, 168, 255))
-    for y in range(60, S - 60, 36):
-        d.rectangle((44, y, 50, y + 20), fill=(236, 218, 168, 255))
-        d.rectangle((S - 50, y, S - 44, y + 20), fill=(236, 218, 168, 255))
     return img.convert('RGB')
 
 
@@ -222,13 +217,13 @@ def icons_and_launch(icon):
     for name, sz in (('Icon.png', 57), ('Icon@2x.png', 114), ('Icon-Small.png', 29), ('Icon-Small@2x.png', 58)):
         icon.resize((sz, sz), Image.LANCZOS).save(os.path.join(OUT, name))
     lin = Image.open(os.path.join(OUT, 'bg_linen@2x.png'))
-    nav = Image.open(os.path.join(OUT, 'nav_leather@2x.png'))
+    nav = Image.open(os.path.join(OUT, 'nav_bar@2x.png'))
     for w, h, name in ((640, 960, 'Default@2x.png'), (640, 1136, 'Default-568h@2x.png')):
         im = Image.new('RGB', (w, h))
         for y in range(0, h, lin.size[1]):
             for x in range(0, w, lin.size[0]):
                 im.paste(lin, (x, y))
-        im.paste(nav.crop((0, 0, w, 88)).resize((w, 88)), (0, 0))   # pasek skórzany pod status barem
+        im.paste(nav, (0, 0))
         ic = icon.resize((256, 256), Image.LANCZOS)
         m = Image.new('L', (256, 256), 0)
         ImageDraw.Draw(m).rounded_rectangle((0, 0, 255, 255), radius=46, fill=255)
@@ -239,6 +234,15 @@ def icons_and_launch(icon):
 
 
 if __name__ == '__main__':
-    nav_bar(); header_strip(); linen(); paper(); buttons()
+    for old in ('nav_leather', 'header_leather', 'bg_paper'):
+        for suf in ('.png', '@2x.png'):
+            p = os.path.join(OUT, old + suf)
+            if os.path.exists(p):
+                os.remove(p)
+    linen(); nav_bar()
+    strip('header_bar', (54, 82, 138), (28, 46, 94), (118, 150, 210), (6, 10, 24))
+    stretch_row('cell_bg', (35, 48, 80), (27, 38, 66), (60, 78, 120), (9, 14, 30))
+    stretch_row('cell_sel', (66, 134, 236), (30, 84, 190), (160, 204, 255), (12, 38, 98))
+    buttons(); tile_card(); icons_bar()
     icons_and_launch(icon_1024())
     print('gotowe:', sorted(os.listdir(OUT)))

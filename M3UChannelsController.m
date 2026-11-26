@@ -3,18 +3,28 @@
 #import "M3UStore.h"
 #import "M3ULogos.h"
 #import "M3UTheme.h"
+#import "M3UTiles.h"
 #import <MediaPlayer/MediaPlayer.h>
 
-@interface M3UChannelsController () <UISearchBarDelegate, UIActionSheetDelegate>
+static NSString *const kLayoutKey = @"layout_grid";
+static const CGFloat kListTile = 46.0f;
+static const CGFloat kGridTile = 80.0f;
+
+@interface M3UChannelsController () <UITableViewDataSource, UITableViewDelegate, UICollectionViewDataSource,
+                                     UICollectionViewDelegateFlowLayout, UISearchBarDelegate, UIActionSheetDelegate>
 @property (nonatomic, strong) NSDictionary *playlist;
 @property (nonatomic, assign) BOOL favoritesMode;
+@property (nonatomic, assign) BOOL gridMode;
 @property (nonatomic, strong) NSArray *entries;        /* wszystkie kanały */
 @property (nonatomic, strong) NSArray *groupNames;     /* nazwy sekcji (gdy brak szukania) */
 @property (nonatomic, strong) NSArray *groupRows;      /* tablica tablic M3UEntry */
 @property (nonatomic, strong) NSArray *found;          /* wyniki szukania (płaska lista) */
 @property (nonatomic, copy) NSString *query;
-@property (nonatomic, copy) NSString *message;         /* błąd albo „brak kanałów” pod listą */
+@property (nonatomic, copy) NSString *message;         /* komunikat na środku (błąd, „brak wyników”) */
 @property (nonatomic, strong) UISearchBar *search;
+@property (nonatomic, strong) UITableView *table;
+@property (nonatomic, strong) UICollectionView *grid;
+@property (nonatomic, strong) UILabel *messageLabel;
 @property (nonatomic, strong) M3UEntry *actionEntry;
 @property (nonatomic, strong) MPMoviePlayerViewController *player;
 @property (nonatomic, assign) BOOL loading;
@@ -24,7 +34,7 @@
 
 - (id)initWithPlaylist:(NSDictionary *)playlist
 {
-    self = [super initWithStyle:UITableViewStylePlain];
+    self = [super initWithNibName:nil bundle:nil];
     if (self) {
         self.playlist = playlist;
         self.title = [playlist objectForKey:@"name"];
@@ -34,7 +44,7 @@
 
 - (id)initWithFavorites
 {
-    self = [super initWithStyle:UITableViewStylePlain];
+    self = [super initWithNibName:nil bundle:nil];
     if (self) {
         self.favoritesMode = YES;
         self.title = @"Ulubione";
@@ -44,6 +54,7 @@
 
 - (void)dealloc
 {
+    [NSObject cancelPreviousPerformRequestsWithTarget:self];
     [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
@@ -52,20 +63,74 @@
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-    self.search = [[UISearchBar alloc] initWithFrame:CGRectMake(0, 0, 320, 44)];
+    self.gridMode = [[NSUserDefaults standardUserDefaults] boolForKey:kLayoutKey];
+    self.view.backgroundColor = [UIColor colorWithPatternImage:M3UBackgroundPattern()];
+    CGRect b = self.view.bounds;
+    CGFloat sh = 44.0f;
+
+    self.table = [[UITableView alloc] initWithFrame:CGRectMake(0, sh, b.size.width, b.size.height - sh) style:UITableViewStylePlain];
+    self.table.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    self.table.dataSource = self;
+    self.table.delegate = self;
+    self.table.rowHeight = 58.0f;
+    M3UStyleTable(self.table);
+    [self.view addSubview:self.table];
+
+    UICollectionViewFlowLayout *fl = [[UICollectionViewFlowLayout alloc] init];
+    fl.itemSize = CGSizeMake(96, 120);
+    fl.minimumInteritemSpacing = 8;
+    fl.minimumLineSpacing = 10;
+    fl.sectionInset = UIEdgeInsetsMake(10, 8, 10, 8);
+    self.grid = [[UICollectionView alloc] initWithFrame:CGRectMake(0, sh, b.size.width, b.size.height - sh) collectionViewLayout:fl];
+    self.grid.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    self.grid.backgroundColor = [UIColor clearColor];
+    self.grid.alwaysBounceVertical = YES;
+    self.grid.dataSource = self;
+    self.grid.delegate = self;
+    [self.grid registerClass:[M3UTileCell class] forCellWithReuseIdentifier:@"tile"];
+    [self.grid registerClass:[M3UTileHeader class] forSupplementaryViewOfKind:UICollectionElementKindSectionHeader withReuseIdentifier:@"head"];
+    [self.view addSubview:self.grid];
+
+    self.search = [[UISearchBar alloc] initWithFrame:CGRectMake(0, 0, b.size.width, sh)];
+    self.search.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     self.search.delegate = self;
     self.search.placeholder = @"Szukaj kanału";
     self.search.autocorrectionType = UITextAutocorrectionTypeNo;
     self.search.autocapitalizationType = UITextAutocapitalizationTypeNone;
+    self.search.keyboardAppearance = UIKeyboardAppearanceAlert;
     M3UStyleSearchBar(self.search);
-    self.tableView.tableHeaderView = self.search;
-    M3UStyleTable(self.tableView);
-    self.tableView.rowHeight = 58.0f;
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(logoLoaded) name:M3ULogoDidLoad object:nil];
-    if (!self.favoritesMode) {
-        self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh
-                                                                                               target:self action:@selector(refreshTapped)];
+    [self.view addSubview:self.search];
+
+    self.messageLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+    self.messageLabel.backgroundColor = [UIColor clearColor];
+    self.messageLabel.numberOfLines = 0;
+    self.messageLabel.textAlignment = NSTextAlignmentCenter;
+    self.messageLabel.textColor = M3USubtleColor();
+    self.messageLabel.shadowColor = [UIColor colorWithWhite:0 alpha:0.85f];
+    self.messageLabel.shadowOffset = CGSizeMake(0, -1);
+    self.messageLabel.font = [UIFont systemFontOfSize:15.0f];
+    self.messageLabel.hidden = YES;
+    [self.view addSubview:self.messageLabel];
+
+    for (UIView *v in [NSArray arrayWithObjects:self.table, self.grid, nil]) {
+        UILongPressGestureRecognizer *lp = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(longPressed:)];
+        lp.minimumPressDuration = 0.6;
+        [v addGestureRecognizer:lp];
     }
+
+    NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
+    [nc addObserver:self selector:@selector(logoLoaded) name:M3ULogoDidLoad object:nil];
+    [nc addObserver:self selector:@selector(keyboardChanged:) name:UIKeyboardWillShowNotification object:nil];
+    [nc addObserver:self selector:@selector(keyboardChanged:) name:UIKeyboardWillHideNotification object:nil];
+
+    [self applyLayoutMode];
+    [self updateNavItems];
+}
+
+- (void)viewDidLayoutSubviews
+{
+    [super viewDidLayoutSubviews];
+    [self layoutMessage];
 }
 
 - (void)viewWillAppear:(BOOL)animated
@@ -76,8 +141,46 @@
     } else if (!self.entries && !self.loading) {
         [self loadPlaylist];
     } else {
-        [self.tableView reloadData];   /* gwiazdki mogły się zmienić */
+        [self reloadContent];   /* gwiazdki mogły się zmienić */
     }
+}
+
+#pragma mark - Układ: lista albo kafelki
+
+- (void)applyLayoutMode
+{
+    self.table.hidden = self.gridMode;
+    self.grid.hidden = !self.gridMode;
+}
+
+- (void)toggleLayout
+{
+    self.gridMode = !self.gridMode;
+    [[NSUserDefaults standardUserDefaults] setBool:self.gridMode forKey:kLayoutKey];
+    [self applyLayoutMode];
+    [self reloadContent];
+    [self updateNavItems];
+}
+
+- (void)updateNavItems
+{
+    /* Ikona pokazuje układ, na który przełączymy (jak w aplikacjach z iOS 6). */
+    UIBarButtonItem *layout = [[UIBarButtonItem alloc] initWithImage:M3UBarIcon(self.gridMode ? @"ico_list" : @"ico_grid")
+                                                               style:UIBarButtonItemStyleBordered
+                                                              target:self action:@selector(toggleLayout)];
+    if (self.favoritesMode) {
+        self.navigationItem.rightBarButtonItem = layout;
+        return;
+    }
+    UIBarButtonItem *second;
+    if (self.loading) {
+        UIActivityIndicatorView *spin = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhite];
+        [spin startAnimating];
+        second = [[UIBarButtonItem alloc] initWithCustomView:spin];
+    } else {
+        second = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh target:self action:@selector(refreshTapped)];
+    }
+    self.navigationItem.rightBarButtonItems = [NSArray arrayWithObjects:second, layout, nil];
 }
 
 #pragma mark - Dane
@@ -94,7 +197,7 @@
         e.logo = @"";
         list = [e.url length] ? [NSArray arrayWithObject:e] : [NSArray array];
     }
-    [self setEntries:list];
+    self.entries = list;
     self.message = [list count] ? nil : @"Nie znalazłem w tej liście żadnych kanałów.";
     [self rebuild];
 }
@@ -111,7 +214,7 @@
         [list addObject:e];
     }
     self.entries = list;
-    self.message = [list count] ? nil : @"Brak ulubionych. Dotknij strzałki obok kanału i wybierz „Dodaj do ulubionych”.";
+    self.message = [list count] ? nil : @"Brak ulubionych. Przytrzymaj kanał albo dotknij strzałki obok niego i wybierz „Dodaj do ulubionych”.";
     [self rebuild];
 }
 
@@ -141,19 +244,16 @@
 - (void)fetch:(NSString *)url silent:(BOOL)silent
 {
     self.loading = YES;
-    UIActivityIndicatorView *spin = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhite];
-    [spin startAnimating];
-    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:spin];
-    if (!silent && ![self.entries count]) { self.message = @"Pobieram listę…"; [self reloadTable]; }
+    [self updateNavItems];
+    if (!silent && ![self.entries count]) { self.message = @"Pobieram listę…"; [self reloadContent]; }
     __weak M3UChannelsController *weakSelf = self;
     M3UFetch(url, ^(NSData *data, NSString *error) {
         M3UChannelsController *me = weakSelf;
         if (!me) return;
         me.loading = NO;
-        me.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh
-                                                                                              target:me action:@selector(refreshTapped)];
+        [me updateNavItems];
         if (!data) {
-            if (![me.entries count]) { me.message = error; [me reloadTable]; }
+            if (![me.entries count]) { me.message = error; [me reloadContent]; }
             else if (!silent) [[[UIAlertView alloc] initWithTitle:nil message:error delegate:nil cancelButtonTitle:@"OK" otherButtonTitles:nil] show];
             return;
         }
@@ -197,42 +297,82 @@
         self.groupRows = rowsList;
         if ([self.entries count]) self.message = nil;
     }
-    [self reloadTable];
+    [self reloadContent];
 }
 
-/* Komunikat (błąd, „brak wyników”) pokazujemy pod listą, także gdy nie ma żadnej sekcji. */
-- (void)reloadTable
+/* Odświeża tylko widok, który jest teraz na ekranie. */
+- (void)reloadContent
 {
-    [self.tableView reloadData];
-    self.tableView.tableFooterView = self.message ? [self messageView] : nil;
+    if (!self.isViewLoaded) return;
+    if (self.gridMode) [self.grid reloadData]; else [self.table reloadData];
+    [self layoutMessage];
 }
 
-- (M3UEntry *)entryAt:(NSIndexPath *)ip
+- (void)layoutMessage
 {
-    if (self.found) return [self.found objectAtIndex:(NSUInteger)ip.row];
-    return [[self.groupRows objectAtIndex:(NSUInteger)ip.section] objectAtIndex:(NSUInteger)ip.row];
+    if (!self.messageLabel) return;
+    self.messageLabel.hidden = ![self.message length];
+    if (self.messageLabel.hidden) return;
+    self.messageLabel.text = self.message;
+    CGFloat w = self.view.bounds.size.width - 40.0f;
+    CGSize s = [self.messageLabel sizeThatFits:CGSizeMake(w, 400.0f)];
+    self.messageLabel.frame = CGRectMake(20, 44.0f + 36.0f, w, s.height);
+}
+
+- (NSInteger)sectionCount { return self.found ? 1 : (NSInteger)[self.groupNames count]; }
+
+- (NSArray *)rowsInSection:(NSInteger)s
+{
+    if (self.found) return self.found;
+    return (s >= 0 && s < (NSInteger)[self.groupRows count]) ? [self.groupRows objectAtIndex:(NSUInteger)s] : nil;
+}
+
+- (M3UEntry *)entryAtSection:(NSInteger)s row:(NSInteger)r
+{
+    NSArray *rows = [self rowsInSection:s];
+    return (r >= 0 && r < (NSInteger)[rows count]) ? [rows objectAtIndex:(NSUInteger)r] : nil;
+}
+
+- (NSString *)headerText:(NSInteger)s
+{
+    if (self.found || s >= (NSInteger)[self.groupNames count]) return nil;
+    NSString *g = [self.groupNames objectAtIndex:(NSUInteger)s];
+    /* Jedna, nienazwana grupa nie potrzebuje nagłówka. */
+    if ([self.groupNames count] == 1 && ![g length]) return nil;
+    return [g length] ? g : @"Bez grupy";
 }
 
 #pragma mark - Ikonki kanałów
 
-- (UIImage *)tileFor:(M3UEntry *)e
+/* Logo, gdy jest; do czasu pobrania (albo gdy go brak) płytka z inicjałami. */
+- (UIImage *)tileFor:(M3UEntry *)e side:(CGFloat)side
 {
-    if (![e.logo length]) return M3UPlaceholderTile();
-    UIImage *tile = M3UCachedLogoTile(e.logo);
-    if (tile) return tile;
-    if (!M3ULogoFailed(e.logo)) {
-        NSString *url = e.logo;
-        __weak M3UChannelsController *weakSelf = self;
-        M3URequestLogo(url, ^BOOL{
-            M3UChannelsController *me = weakSelf;
-            if (!me || !me.isViewLoaded || !me.view.window) return NO;
-            for (NSIndexPath *ip in [me.tableView indexPathsForVisibleRows]) {
-                if ([[me entryAt:ip].logo isEqualToString:url]) return YES;
-            }
-            return NO;
-        });
+    if ([e.logo length]) {
+        UIImage *t = M3UCachedLogoTile(e.logo, side);
+        if (t) return t;
+        if (!M3ULogoFailed(e.logo)) {
+            NSString *url = e.logo;
+            __weak M3UChannelsController *weakSelf = self;
+            M3URequestLogo(url, side, ^BOOL{
+                M3UChannelsController *me = weakSelf;
+                if (!me || !me.isViewLoaded || !me.view.window) return NO;
+                return [me isLogoVisible:url];
+            });
+        }
     }
-    return M3UPlaceholderTile();
+    return M3UMonogramTile(e.name, side);
+}
+
+- (BOOL)isLogoVisible:(NSString *)url
+{
+    if (self.gridMode) {
+        for (NSIndexPath *ip in [self.grid indexPathsForVisibleItems])
+            if ([[self entryAtSection:ip.section row:ip.item].logo isEqualToString:url]) return YES;
+    } else {
+        for (NSIndexPath *ip in [self.table indexPathsForVisibleRows])
+            if ([[self entryAtSection:ip.section row:ip.row].logo isEqualToString:url]) return YES;
+    }
+    return NO;
 }
 
 /* Gdy któreś logo się pobierze, podmieniamy ikonki w widocznych wierszach (bez przeładowania listy). */
@@ -245,16 +385,24 @@
 - (void)refreshVisibleLogos
 {
     if (!self.isViewLoaded) return;
-    for (NSIndexPath *ip in [self.tableView indexPathsForVisibleRows]) {
-        UITableViewCell *cell = [self.tableView cellForRowAtIndexPath:ip];
-        if (!cell) continue;
-        M3UEntry *e = [self entryAt:ip];
-        UIImage *tile = [e.logo length] ? M3UCachedLogoTile(e.logo) : nil;
-        if (tile && cell.imageView.image != tile) cell.imageView.image = tile;
+    if (self.gridMode) {
+        for (UICollectionViewCell *c in [self.grid visibleCells]) {
+            NSIndexPath *ip = [self.grid indexPathForCell:c];
+            M3UEntry *e = ip ? [self entryAtSection:ip.section row:ip.item] : nil;
+            UIImage *t = [e.logo length] ? M3UCachedLogoTile(e.logo, kGridTile) : nil;
+            if (t) [(M3UTileCell *)c setPlate:t];
+        }
+    } else {
+        for (UITableViewCell *c in [self.table visibleCells]) {
+            NSIndexPath *ip = [self.table indexPathForCell:c];
+            M3UEntry *e = ip ? [self entryAtSection:ip.section row:ip.row] : nil;
+            UIImage *t = [e.logo length] ? M3UCachedLogoTile(e.logo, kListTile) : nil;
+            if (t && c.imageView.image != t) c.imageView.image = t;
+        }
     }
 }
 
-#pragma mark - Szukanie
+#pragma mark - Szukanie i klawiatura
 
 - (void)searchBar:(UISearchBar *)bar textDidChange:(NSString *)text
 {
@@ -267,27 +415,28 @@
 
 - (void)scrollViewWillBeginDragging:(UIScrollView *)sv { [self.search resignFirstResponder]; }
 
-#pragma mark - Tabela
-
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv
+/* Klawiatura zasłaniałaby dół listy, więc dodajemy margines. */
+- (void)keyboardChanged:(NSNotification *)n
 {
-    return self.found ? 1 : (NSInteger)[self.groupNames count];
+    if (!self.view.window) return;
+    CGFloat h = 0;
+    if ([[n name] isEqualToString:UIKeyboardWillShowNotification]) {
+        CGRect kb = [[[n userInfo] objectForKey:UIKeyboardFrameEndUserInfoKey] CGRectValue];
+        CGRect inView = [self.view convertRect:[self.view.window convertRect:kb fromWindow:nil] fromView:nil];
+        h = MAX(0.0f, CGRectGetMaxY(self.view.bounds) - inView.origin.y);
+    }
+    UIEdgeInsets in = UIEdgeInsetsMake(0, 0, h, 0);
+    self.table.contentInset = in;
+    self.table.scrollIndicatorInsets = in;
+    self.grid.contentInset = in;
+    self.grid.scrollIndicatorInsets = in;
 }
 
-- (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s
-{
-    if (self.found) return (NSInteger)[self.found count];
-    return (NSInteger)[[self.groupRows objectAtIndex:(NSUInteger)s] count];
-}
+#pragma mark - Lista (tabela)
 
-- (NSString *)headerText:(NSInteger)s
-{
-    if (self.found) return nil;
-    NSString *g = [self.groupNames objectAtIndex:(NSUInteger)s];
-    /* Jedna, nienazwana grupa nie potrzebuje nagłówka. */
-    if ([self.groupNames count] == 1 && ![g length]) return nil;
-    return [g length] ? g : @"Bez grupy";
-}
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return [self sectionCount]; }
+
+- (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s { return (NSInteger)[[self rowsInSection:s] count]; }
 
 - (UIView *)tableView:(UITableView *)tv viewForHeaderInSection:(NSInteger)s
 {
@@ -300,24 +449,16 @@
     return [self headerText:s] ? 22.0f : 0.0f;
 }
 
-- (void)tableView:(UITableView *)tv willDisplayCell:(UITableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)ip
-{
-    M3UPaperCell(cell);
-}
-
-- (UIView *)messageView
-{
-    return M3UFooterView(self.message, self.tableView.bounds.size.width);
-}
+- (CGFloat)tableView:(UITableView *)tv heightForFooterInSection:(NSInteger)s { return 0.0f; }
 
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip
 {
     static NSString *ident = @"k";
     UITableViewCell *cell = [tv dequeueReusableCellWithIdentifier:ident];
     if (!cell) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:ident];
-    M3UEntry *e = [self entryAt:ip];
+    M3UEntry *e = [self entryAtSection:ip.section row:ip.row];
     M3UStyleCell(cell);
-    cell.imageView.image = [self tileFor:e];
+    cell.imageView.image = [self tileFor:e side:kListTile];
     BOOL fav = M3UIsFavorite(e.url);
     cell.textLabel.text = fav ? [@"★ " stringByAppendingString:e.name] : e.name;
     cell.detailTextLabel.text = (self.found || self.favoritesMode) && [e.group length] ? e.group : nil;
@@ -329,17 +470,76 @@
 {
     [tv deselectRowAtIndexPath:ip animated:YES];
     [self.search resignFirstResponder];
-    [self play:[self entryAt:ip]];
+    M3UEntry *e = [self entryAtSection:ip.section row:ip.row];
+    if (e) [self play:e];
 }
 
 - (void)tableView:(UITableView *)tv accessoryButtonTappedForRowWithIndexPath:(NSIndexPath *)ip
 {
+    M3UEntry *e = [self entryAtSection:ip.section row:ip.row];
+    if (e) [self showActions:e];
+}
+
+#pragma mark - Kafelki (siatka)
+
+- (NSInteger)numberOfSectionsInCollectionView:(UICollectionView *)cv { return [self sectionCount]; }
+
+- (NSInteger)collectionView:(UICollectionView *)cv numberOfItemsInSection:(NSInteger)s { return (NSInteger)[[self rowsInSection:s] count]; }
+
+- (UICollectionViewCell *)collectionView:(UICollectionView *)cv cellForItemAtIndexPath:(NSIndexPath *)ip
+{
+    M3UTileCell *cell = [cv dequeueReusableCellWithReuseIdentifier:@"tile" forIndexPath:ip];
+    M3UEntry *e = [self entryAtSection:ip.section row:ip.item];
+    [cell setTitle:e.name plate:[self tileFor:e side:kGridTile] favorite:M3UIsFavorite(e.url)];
+    return cell;
+}
+
+- (UICollectionReusableView *)collectionView:(UICollectionView *)cv viewForSupplementaryElementOfKind:(NSString *)kind atIndexPath:(NSIndexPath *)ip
+{
+    M3UTileHeader *h = [cv dequeueReusableSupplementaryViewOfKind:kind withReuseIdentifier:@"head" forIndexPath:ip];
+    [h setTitle:[self headerText:ip.section] ?: @""];
+    return h;
+}
+
+- (CGSize)collectionView:(UICollectionView *)cv layout:(UICollectionViewLayout *)layout referenceSizeForHeaderInSection:(NSInteger)s
+{
+    return [self headerText:s] ? CGSizeMake(cv.bounds.size.width, 22.0f) : CGSizeZero;
+}
+
+- (void)collectionView:(UICollectionView *)cv didSelectItemAtIndexPath:(NSIndexPath *)ip
+{
     [self.search resignFirstResponder];
-    self.actionEntry = [self entryAt:ip];
-    BOOL fav = M3UIsFavorite(self.actionEntry.url);
-    UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:self.actionEntry.name delegate:self cancelButtonTitle:@"Anuluj"
+    M3UEntry *e = [self entryAtSection:ip.section row:ip.item];
+    if (e) [self play:e];
+}
+
+#pragma mark - Menu kanału
+
+- (void)longPressed:(UILongPressGestureRecognizer *)g
+{
+    if (g.state != UIGestureRecognizerStateBegan) return;
+    CGPoint p = [g locationInView:g.view];
+    M3UEntry *e = nil;
+    if (g.view == self.table) {
+        NSIndexPath *ip = [self.table indexPathForRowAtPoint:p];
+        if (ip) e = [self entryAtSection:ip.section row:ip.row];
+    } else {
+        NSIndexPath *ip = [self.grid indexPathForItemAtPoint:p];
+        if (ip) e = [self entryAtSection:ip.section row:ip.item];
+    }
+    if (e) [self showActions:e];
+}
+
+- (void)showActions:(M3UEntry *)e
+{
+    [self.search resignFirstResponder];
+    self.actionEntry = e;
+    BOOL fav = M3UIsFavorite(e.url);
+    UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:e.name delegate:self cancelButtonTitle:@"Anuluj"
                                          destructiveButtonTitle:nil
-                                              otherButtonTitles:fav ? @"Usuń z ulubionych" : @"Dodaj do ulubionych", @"Kopiuj adres", nil];
+                                              otherButtonTitles:fav ? @"Usuń z ulubionych" : @"Dodaj do ulubionych",
+                                                                @"Kopiuj adres", @"Szczegóły", nil];
+    sheet.actionSheetStyle = UIActionSheetStyleBlackOpaque;
     [sheet showInView:self.view.window];
 }
 
@@ -349,9 +549,14 @@
     if (!e || i == sheet.cancelButtonIndex) return;
     if (i == 0) {
         M3UToggleFavorite(e.name, e.url, e.group, e.logo);
-        if (self.favoritesMode) [self loadFavorites]; else [self.tableView reloadData];
+        if (self.favoritesMode) [self loadFavorites]; else [self reloadContent];
     } else if (i == 1) {
         [UIPasteboard generalPasteboard].string = e.url;
+    } else if (i == 2) {
+        NSString *msg = [NSString stringWithFormat:@"Grupa: %@\n\nAdres:\n%@\n\nLogo:\n%@\n%@",
+                         [e.group length] ? e.group : @"brak", e.url,
+                         [e.logo length] ? e.logo : @"brak", M3ULogoStatus(e.logo)];
+        [[[UIAlertView alloc] initWithTitle:e.name message:msg delegate:nil cancelButtonTitle:@"OK" otherButtonTitles:nil] show];
     }
 }
 
