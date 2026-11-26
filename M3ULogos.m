@@ -5,7 +5,8 @@ NSString *const M3ULogoDidLoad = @"M3ULogoDidLoad";
 static const CGFloat kSide = 46.0f;
 static const NSUInteger kMaxBytes = 1500000;
 
-static NSCache *memory;
+/* NSCache celowo nie używamy: SDK 9.3 wiąże go z CoreFoundation, a w iOS 6 jest w Foundation. */
+static NSMutableDictionary *memory;
 static NSMutableSet *failed;
 static NSMutableSet *inflight;
 static NSOperationQueue *queue;
@@ -16,8 +17,7 @@ static void setup(void)
 {
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        memory = [[NSCache alloc] init];
-        memory.countLimit = 300;
+        memory = [[NSMutableDictionary alloc] init];
         failed = [[NSMutableSet alloc] init];
         inflight = [[NSMutableSet alloc] init];
         queue = [[NSOperationQueue alloc] init];
@@ -144,7 +144,12 @@ void M3URequestLogo(NSString *url, BOOL (^stillNeeded)(void))
             UIImage *tile = logo ? composeTile(logo) : nil;
             dispatch_async(dispatch_get_main_queue(), ^{
                 [inflight removeObject:url];
-                if (tile) [memory setObject:tile forKey:url]; else [failed addObject:url];
+                if (tile) {
+                    if ([memory count] >= 250) [memory removeAllObjects];   /* proste ograniczenie pamięci */
+                    [memory setObject:tile forKey:url];
+                } else {
+                    [failed addObject:url];
+                }
                 [[NSNotificationCenter defaultCenter] postNotificationName:M3ULogoDidLoad object:nil];
             });
         }
