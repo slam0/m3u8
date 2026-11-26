@@ -18,15 +18,19 @@
     _card.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [self.contentView addSubview:_card];
 
-    _plate = [[UIImageView alloc] initWithFrame:CGRectMake(8, 8, 80, 80)];
+    /* górna część: logo w swoich proporcjach, wpasowane w ramkę */
+    _plate = [[UIImageView alloc] initWithFrame:CGRectMake(12, 12, frame.size.width - 24, 82)];
+    _plate.contentMode = UIViewContentModeScaleAspectFit;
+    _plate.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     [self.contentView addSubview:_plate];
 
-    _title = [[UILabel alloc] initWithFrame:CGRectMake(5, 90, frame.size.width - 10, 26)];
+    _title = [[UILabel alloc] initWithFrame:CGRectMake(8, 100, frame.size.width - 16, 40)];
+    _title.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     _title.backgroundColor = [UIColor clearColor];
     _title.textColor = M3UTextColor();
     _title.shadowColor = [UIColor colorWithWhite:0 alpha:0.85f];
     _title.shadowOffset = CGSizeMake(0, -1);
-    _title.font = [UIFont boldSystemFontOfSize:11.0f];
+    _title.font = [UIFont boldSystemFontOfSize:14.0f];
     _title.textAlignment = NSTextAlignmentCenter;
     _title.numberOfLines = 2;
     _title.lineBreakMode = NSLineBreakByTruncatingTail;
@@ -40,6 +44,7 @@
     _star.textColor = [UIColor colorWithRed:1.0f green:0.82f blue:0.30f alpha:1.0f];
     _star.shadowColor = [UIColor colorWithWhite:0 alpha:0.9f];
     _star.shadowOffset = CGSizeMake(0, 1);
+    _star.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin;
     _star.hidden = YES;
     [self.contentView addSubview:_star];
     return self;

@@ -8,7 +8,8 @@
 
 static NSString *const kLayoutKey = @"layout_grid";
 static const CGFloat kListTile = 46.0f;
-static const CGFloat kGridTile = 80.0f;
+static const CGFloat kGridTile = 0.0f;       /* 0 = logo w swoich proporcjach */
+static const CGFloat kGridMonogram = 76.0f;
 
 @interface M3UChannelsController () <UITableViewDataSource, UITableViewDelegate, UICollectionViewDataSource,
                                      UICollectionViewDelegateFlowLayout, UISearchBarDelegate, UIActionSheetDelegate>
@@ -77,10 +78,14 @@ static const CGFloat kGridTile = 80.0f;
     [self.view addSubview:self.table];
 
     UICollectionViewFlowLayout *fl = [[UICollectionViewFlowLayout alloc] init];
-    fl.itemSize = CGSizeMake(96, 120);
-    fl.minimumInteritemSpacing = 8;
-    fl.minimumLineSpacing = 10;
-    fl.sectionInset = UIEdgeInsetsMake(10, 8, 10, 8);
+    /* duże kafelki: 2 kolumny na telefonie (4 na iPadzie), logo w górnej części, nazwa pod spodem */
+    int cols = b.size.width >= 600.0f ? 4 : 2;
+    CGFloat gap = 10.0f;
+    CGFloat tw = (CGFloat)(int)((b.size.width - gap * (cols + 1)) / cols);
+    fl.itemSize = CGSizeMake(tw, 150.0f);
+    fl.minimumInteritemSpacing = gap;
+    fl.minimumLineSpacing = gap;
+    fl.sectionInset = UIEdgeInsetsMake(gap, gap, gap, gap);
     self.grid = [[UICollectionView alloc] initWithFrame:CGRectMake(0, sh, b.size.width, b.size.height - sh) collectionViewLayout:fl];
     self.grid.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     self.grid.backgroundColor = [UIColor clearColor];
@@ -360,7 +365,7 @@ static const CGFloat kGridTile = 80.0f;
             });
         }
     }
-    return M3UMonogramTile(e.name, side);
+    return M3UMonogramTile(e.name, side > 0 ? side : kGridMonogram);
 }
 
 - (BOOL)isLogoVisible:(NSString *)url

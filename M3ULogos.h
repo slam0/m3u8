@@ -8,7 +8,7 @@
 extern NSString *const M3ULogoDidLoad;
 
 UIImage *M3UMonogramTile(NSString *name, CGFloat side);          /* płytka z inicjałami */
-UIImage *M3UCachedLogoTile(NSString *url, CGFloat side);         /* kafelek z logo z pamięci albo nil */
+UIImage *M3UCachedLogoTile(NSString *url, CGFloat side);         /* kafelek z logo z pamięci albo nil; side <= 0 = logo w swoich proporcjach (duże kafelki) */
 BOOL M3ULogoFailed(NSString *url);                               /* YES, jeśli logo się nie pobrało */
 NSString *M3ULogoStatus(NSString *url);                          /* opis stanu dla ekranu „Szczegóły” */
 /* Prosi o pobranie. stillNeeded woła się tuż przed pobraniem - gdy zwróci NO (wiersz przewinięty), pomijamy. */

@@ -76,6 +76,65 @@ static UIImage *composeLogoTile(UIImage *logo, CGFloat side)
     });
 }
 
+/* Średnia jasność widocznych pikseli logo (0..1) i jego „pokrycie” (0..1) - do wyboru tła pod logo. */
+static void logoStats(UIImage *logo, CGFloat *lum, CGFloat *coverage)
+{
+    enum { N = 24 };
+    unsigned char px[N * N * 4];
+    for (int i = 0; i < N * N * 4; i++) px[i] = 0;
+    CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB();
+    CGContextRef c = CGBitmapContextCreate(px, N, N, 8, N * 4, cs, (CGBitmapInfo)kCGImageAlphaPremultipliedLast);
+    CGColorSpaceRelease(cs);
+    *lum = 1.0f; *coverage = 1.0f;
+    if (!c) return;
+    CGContextDrawImage(c, CGRectMake(0, 0, N, N), logo.CGImage);
+    CGContextRelease(c);
+    double a = 0, l = 0;
+    for (int i = 0; i < N * N; i++) {
+        double al = px[i * 4 + 3] / 255.0;
+        /* piksele są premultiplikowane, więc suma kanałów to już jasność ważona kryciem */
+        l += (0.30 * px[i * 4] + 0.59 * px[i * 4 + 1] + 0.11 * px[i * 4 + 2]) / 255.0;
+        a += al;
+    }
+    *coverage = (CGFloat)(a / (N * N));
+    *lum = a > 0.5 ? (CGFloat)(l / a) : 1.0f;
+}
+
+/* Logo w swoich proporcjach (bez kwadratowej płytki), do dużych kafelków. Przezroczyste, ciemne logo
+ * dostaje jasną podkładkę, żeby było widać na granatowej karcie. */
+static UIImage *composeLogoWide(UIImage *logo)
+{
+    if (logo.size.width <= 0 || logo.size.height <= 0) return nil;
+    const CGFloat maxW = 190.0f, maxH = 110.0f;
+    CGFloat kx = maxW / logo.size.width, ky = maxH / logo.size.height;
+    CGFloat k = kx < ky ? kx : ky;
+    if (k > 1.0f) k = 1.0f;
+    CGSize sz = CGSizeMake((CGFloat)(int)(logo.size.width * k + 0.5f), (CGFloat)(int)(logo.size.height * k + 0.5f));
+    if (sz.width < 1) sz.width = 1;
+    if (sz.height < 1) sz.height = 1;
+
+    CGFloat lum, cov;
+    logoStats(logo, &lum, &cov);
+    BOOL plate = (cov < 0.92f && lum < 0.38f);
+
+    CGFloat pad = plate ? 8.0f : 0.0f;
+    CGSize full = CGSizeMake(sz.width + pad * 2.0f, sz.height + pad * 2.0f);
+    UIGraphicsBeginImageContextWithOptions(full, NO, screenScale);
+    CGContextRef ctx = UIGraphicsGetCurrentContext();
+    if (plate) {
+        static const CGFloat g[8] = { 1.0f, 1.0f, 1.0f, 1.0f,  0.84f, 0.87f, 0.93f, 1.0f };
+        CGContextSaveGState(ctx);
+        [[UIBezierPath bezierPathWithRoundedRect:CGRectMake(0, 0, full.width, full.height) cornerRadius:10.0f] addClip];
+        gradientFill(ctx, CGRectMake(0, 0, full.width, full.height), g);
+        CGContextRestoreGState(ctx);
+    }
+    CGContextSetInterpolationQuality(ctx, kCGInterpolationHigh);
+    [logo drawInRect:CGRectMake(pad, pad, sz.width, sz.height)];
+    UIImage *out = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    return out;
+}
+
 static NSString *initials(NSString *name)
 {
     NSMutableString *out = [NSMutableString string];
@@ -235,7 +294,7 @@ void M3URequestLogo(NSString *url, CGFloat side, BOOL (^stillNeeded)(void))
             }
             UIImage *logo = data ? [UIImage imageWithData:data] : nil;
             if (data && !logo) why = @"to nie jest obraz obsługiwany przez iOS 6 (np. WebP albo SVG)";
-            UIImage *tile = logo ? composeLogoTile(logo, side) : nil;
+            UIImage *tile = logo ? (side > 0 ? composeLogoTile(logo, side) : composeLogoWide(logo)) : nil;
             dispatch_async(dispatch_get_main_queue(), ^{
                 [inflight removeObject:k];
                 if (tile) {
