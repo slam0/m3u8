@@ -1,4 +1,4 @@
-# Czytnik M3U
+# iSat (czytnik M3U)
 
 Aplikacja na iOS 6 (jailbreak, armv7) do czytania playlist M3U/M3U8: lista playlist, kanały z grupami,
 wyszukiwarka, ulubione i odtwarzanie HLS przez natywny odtwarzacz.

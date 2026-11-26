@@ -14,7 +14,7 @@
 - (id)init
 {
     self = [super initWithStyle:UITableViewStylePlain];
-    if (self) self.title = @"Czytnik M3U";
+    if (self) self.title = @"iSat";
     return self;
 }
 

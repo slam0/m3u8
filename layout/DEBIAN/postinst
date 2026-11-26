@@ -1,4 +1,4 @@
 #!/bin/sh
-# Po instalacji odśwież listę ikon, żeby "Czytnik M3U" pojawił się na ekranie
+# Po instalacji odśwież listę ikon, żeby "iSat" pojawił się na ekranie
 uicache >/dev/null 2>&1
 exit 0

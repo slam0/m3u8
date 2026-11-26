@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>pl</string>
 	<key>CFBundleDisplayName</key>
-	<string>Czytnik M3U</string>
+	<string>iSat</string>
 	<key>CFBundleExecutable</key>
 	<string>CzytnikM3U</string>
 	<key>CFBundleIconFiles</key>
@@ -24,11 +24,11 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.1</string>
+	<string>1.4.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.1</string>
+	<string>1.4.0</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>

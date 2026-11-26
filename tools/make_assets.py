@@ -218,6 +218,14 @@ def icons_bar():
 
 # ---------- ikona aplikacji i ekrany startowe ----------
 def icon_1024():
+    """Ikona od użytkownika (tools/icon_src.png); gdy jej brak, rysujemy domyślną."""
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'icon_src.png')
+    if os.path.exists(p):
+        return Image.open(p).convert('RGB').resize((1024, 1024), Image.LANCZOS)
+    return icon_1024_default()
+
+
+def icon_1024_default():
     S = 1024
     n = norm(rng.standard_normal((S, S)))
     t = norm(blur(n, 0.7))

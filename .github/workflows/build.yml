@@ -130,4 +130,4 @@ jobs:
           VER=$(grep -E '^Version:' control | head -1 | cut -d' ' -f2)
           gh release delete najnowsza -R "$GITHUB_REPOSITORY" --cleanup-tag -y || true
           gh release create najnowsza $FILES -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "Czytnik M3U $VER" --notes "Ostatnia zbudowana wersja aplikacji ($VER)."
+            --title "iSat $VER" --notes "Ostatnia zbudowana wersja aplikacji ($VER)."
