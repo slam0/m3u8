@@ -159,6 +159,43 @@ UIView *M3UFooterView(NSString *text, CGFloat w)
     return v;
 }
 
+/* Znacznik ulubionych: niebieska zakładka (wstążka z wcięciem) w stylu reszty aplikacji, rysowana kodem. */
+UIImage *M3UFavoriteMark(CGFloat side)
+{
+    static NSMutableDictionary *cache;
+    if (!cache) cache = [[NSMutableDictionary alloc] init];
+    NSString *k = [NSString stringWithFormat:@"%d", (int)side];
+    UIImage *hit = [cache objectForKey:k];
+    if (hit) return hit;
+    CGFloat w = (CGFloat)(int)(side * 0.62f), h = side;
+    UIGraphicsBeginImageContextWithOptions(CGSizeMake(w, h), NO, [[UIScreen mainScreen] scale]);
+    CGContextRef ctx = UIGraphicsGetCurrentContext();
+    CGFloat inset = 1.0f;
+    UIBezierPath *p = [UIBezierPath bezierPath];
+    [p moveToPoint:CGPointMake(inset, 0)];
+    [p addLineToPoint:CGPointMake(w - inset, 0)];
+    [p addLineToPoint:CGPointMake(w - inset, h - inset)];
+    [p addLineToPoint:CGPointMake(w / 2.0f, h * 0.72f)];
+    [p addLineToPoint:CGPointMake(inset, h - inset)];
+    [p closePath];
+    CGContextSaveGState(ctx);
+    [p addClip];
+    CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB();
+    CGFloat c[8] = { 0.45f, 0.66f, 1.0f, 1.0f,  0.13f, 0.32f, 0.78f, 1.0f };
+    CGGradientRef g = CGGradientCreateWithColorComponents(cs, c, NULL, 2);
+    CGContextDrawLinearGradient(ctx, g, CGPointMake(0, 0), CGPointMake(0, h), 0);
+    CGGradientRelease(g);
+    CGColorSpaceRelease(cs);
+    CGContextRestoreGState(ctx);
+    CGContextSetRGBStrokeColor(ctx, 1.0f, 1.0f, 1.0f, 0.9f);
+    CGContextSetLineWidth(ctx, 1.0f);
+    [p stroke];
+    UIImage *img = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    [cache setObject:img forKey:k];
+    return img;
+}
+
 /* Płytka z białym symbolem na niebieskim, szklistym tle. */
 UIImage *M3UGlyphTile(int kind, CGFloat side)
 {

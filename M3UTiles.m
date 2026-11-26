@@ -5,7 +5,7 @@
     UIImageView *_card;
     UIImageView *_plate;
     UILabel *_title;
-    UILabel *_star;
+    UIImageView *_star;
 }
 
 - (id)initWithFrame:(CGRect)frame
@@ -36,14 +36,8 @@
     _title.lineBreakMode = NSLineBreakByTruncatingTail;
     [self.contentView addSubview:_title];
 
-    _star = [[UILabel alloc] initWithFrame:CGRectMake(frame.size.width - 30, 4, 26, 24)];
-    _star.backgroundColor = [UIColor clearColor];
-    _star.text = @"★";
-    _star.textAlignment = NSTextAlignmentCenter;
-    _star.font = [UIFont systemFontOfSize:20.0f];
-    _star.textColor = [UIColor colorWithRed:1.0f green:0.82f blue:0.30f alpha:1.0f];
-    _star.shadowColor = [UIColor colorWithWhite:0 alpha:0.9f];
-    _star.shadowOffset = CGSizeMake(0, 1);
+    _star = [[UIImageView alloc] initWithImage:M3UFavoriteMark(26.0f)];
+    _star.frame = CGRectMake(frame.size.width - 14 - 16, 0, 16, 26);
     _star.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin;
     _star.hidden = YES;
     [self.contentView addSubview:_star];

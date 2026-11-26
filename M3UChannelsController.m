@@ -584,7 +584,7 @@ M3U_ROTATE_ANY
         if (!cc) cc = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1 reuseIdentifier:@"cat"];
         M3UStyleCell(cc);
         NSString *nm = [self categoryName:ip.row];
-        cc.imageView.image = M3UMonogramTile(ip.row == 0 ? @"★" : nm, kListTile);
+        cc.imageView.image = ip.row == 0 ? M3UGlyphTile(1, kListTile) : M3UMonogramTile(nm, kListTile);
         cc.textLabel.text = nm;
         cc.detailTextLabel.text = [NSString stringWithFormat:@"%d", (int)[self categoryCount:ip.row]];
         cc.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
@@ -598,7 +598,16 @@ M3U_ROTATE_ANY
     M3UStyleCell(cell);
     cell.imageView.image = [self tileFor:e side:kListTile];
     BOOL fav = M3UIsFavorite(e.url);
-    cell.textLabel.text = fav ? [@"★ " stringByAppendingString:e.name] : e.name;
+    cell.textLabel.text = e.name;
+    UIImageView *star = (UIImageView *)[cell.contentView viewWithTag:79];
+    if (!star) {                                    /* znacznik ulubionych: rysowana zakładka przy prawej krawędzi */
+        star = [[UIImageView alloc] initWithImage:M3UFavoriteMark(22.0f)];
+        star.tag = 79;
+        star.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin;
+        star.frame = CGRectMake(cell.contentView.bounds.size.width - 22.0f, 0.0f, 13.0f, 22.0f);
+        [cell.contentView addSubview:star];
+    }
+    star.hidden = !fav;
     cell.detailTextLabel.text = (self.found || self.favoritesMode) && [e.group length] ? e.group : nil;
     cell.accessoryType = UITableViewCellAccessoryDetailDisclosureButton;
     return cell;

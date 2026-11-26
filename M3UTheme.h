@@ -14,7 +14,8 @@ UIView *M3UHeaderView(NSString *title);            /* granatowy nagłówek sekcj
 UIView *M3UFooterView(NSString *text, CGFloat w);  /* tekst pod listą, na lnie */
 CGFloat M3UFooterHeight(NSString *text, CGFloat w);
 UIImage *M3UGlyphTile(int kind, CGFloat side);     /* płytka z symbolem: 0 gwiazdka, 1 lista, 2 plik */
-UIImage *M3UBarIcon(NSString *name);               /* ikona na przycisk paska: @"ico_list" / @"ico_grid" */
+UIImage *M3UBarIcon(NSString *name);
+UIImage *M3UFavoriteMark(CGFloat side);            /* znacznik ulubionych: niebieska zakładka, rysowana kodem */               /* ikona na przycisk paska: @"ico_list" / @"ico_grid" */
 
 /* Obracanie ekranu (iOS 5 i iOS 6+): wszystkie ekrany poza kreatorem startowym */
 #define M3U_ROTATE_ANY \

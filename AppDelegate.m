@@ -19,7 +19,7 @@
 {
     M3UDiagInstall();
     NSString *crash = M3UDiagCrashReportIfAny();
-    M3UBreadcrumb(@"start aplikacji 1.10.0");
+    M3UBreadcrumb(@"start aplikacji 1.10.1");
     M3UDiagMarkRunning(YES);
     M3UThemeApply();
     [application setStatusBarStyle:UIStatusBarStyleBlackOpaque];

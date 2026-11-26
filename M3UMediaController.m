@@ -469,12 +469,7 @@ M3U_ROTATE_ANY
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     } else {
         cell.accessoryType = UITableViewCellAccessoryNone;
-        UILabel *p = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 30, 30)];
-        p.backgroundColor = [UIColor clearColor];
-        p.text = @"▶";
-        p.textColor = M3UAccentColor();
-        p.font = [UIFont systemFontOfSize:18.0f];
-        cell.accessoryView = p;
+        cell.accessoryView = nil;
         NSString *y = [[it objectForKey:@"year"] intValue] > 0 ? [NSString stringWithFormat:@"%d", [[it objectForKey:@"year"] intValue]] : nil;
         cell.detailTextLabel.text = y;
     }

@@ -97,7 +97,7 @@ M3U_ROTATE_ANY
     if (s == 1 && ![self.playlists count])
         return L(@"Dotknij +, żeby dodać adres playlisty (.m3u lub .m3u8).");
     if (s == (NSInteger)([self.files count] ? 2 : 1))
-        return L(@"Pliki .m3u wrzucisz przez iTunes (karta Aplikacje → Udostępnianie plików) albo „Otwórz w…” z Safari.");
+        return L(@"Pliki .m3u wrzucisz przez iTunes (karta Aplikacje > Udostępnianie plików) albo „Otwórz w…” z Safari.");
     return nil;
 }
 
