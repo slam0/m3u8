@@ -105,7 +105,10 @@ static const CGFloat kGridMonogram = 76.0f;
     self.search.placeholder = @"Szukaj kanału";
     self.search.autocorrectionType = UITextAutocorrectionTypeNo;
     self.search.autocapitalizationType = UITextAutocapitalizationTypeNone;
-    self.search.keyboardAppearance = UIKeyboardAppearanceAlert;
+    /* UISearchBar sam nie ma ustawienia wyglądu klawiatury w iOS 6 (to wywalało aplikację), więc ustawiamy je na jego polu tekstowym */
+    for (UIView *v in self.search.subviews) {
+        if ([v isKindOfClass:[UITextField class]]) ((UITextField *)v).keyboardAppearance = UIKeyboardAppearanceAlert;
+    }
     M3UStyleSearchBar(self.search);
     [self.view addSubview:self.search];
 
