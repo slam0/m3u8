@@ -23,6 +23,8 @@ static const NSInteger kPages = 4;
 
 @implementation M3USetupController
 
+M3U_ROTATE_PORTRAIT
+
 + (BOOL)needsSetup
 {
     NSUserDefaults *d = [NSUserDefaults standardUserDefaults];

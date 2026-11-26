@@ -8,6 +8,8 @@
 
 @implementation M3UAddController
 
+M3U_ROTATE_ANY
+
 - (id)init
 {
     self = [super initWithStyle:UITableViewStylePlain];

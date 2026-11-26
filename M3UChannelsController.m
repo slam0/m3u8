@@ -26,6 +26,10 @@ static const CGFloat kGridMonogram = 76.0f;
 @property (nonatomic, strong) UISearchBar *search;
 @property (nonatomic, strong) UITableView *table;
 @property (nonatomic, strong) UICollectionView *grid;
+@property (nonatomic) CGFloat gridWidth;
+@property (nonatomic, assign) BOOL categoryMode;    /* pokazujemy listę kategorii, nie kanały */
+@property (nonatomic, assign) BOOL presetEntries;    /* kanały podane z góry (kategoria / wszystkie) */
+@property (nonatomic, assign) BOOL groupLocked;      /* jedna kategoria: nagłówki zbędne */
 @property (nonatomic, strong) UILabel *messageLabel;
 @property (nonatomic, strong) M3UEntry *actionEntry;
 @property (nonatomic, strong) MPMoviePlayerViewController *player;
@@ -34,12 +38,32 @@ static const CGFloat kGridMonogram = 76.0f;
 
 @implementation M3UChannelsController
 
+M3U_ROTATE_ANY
+
 - (id)initWithPlaylist:(NSDictionary *)playlist
 {
     self = [super initWithNibName:nil bundle:nil];
     if (self) {
         self.playlist = playlist;
         self.title = [playlist objectForKey:@"name"];
+    }
+    return self;
+}
+
+- (id)initWithEntries:(NSArray *)entries group:(NSString *)group title:(NSString *)title
+{
+    self = [super initWithNibName:nil bundle:nil];
+    if (self) {
+        self.presetEntries = YES;
+        self.title = title;
+        if (group) {
+            self.groupLocked = YES;
+            NSMutableArray *only = [NSMutableArray array];
+            for (M3UEntry *e in entries) if ([(e.group ?: @"") isEqualToString:group]) [only addObject:e];
+            entries = only;
+        }
+        self.entries = entries;
+        [self rebuild];
     }
     return self;
 }
@@ -81,14 +105,11 @@ static const CGFloat kGridMonogram = 76.0f;
     [self.view addSubview:self.table];
 
     UICollectionViewFlowLayout *fl = [[UICollectionViewFlowLayout alloc] init];
-    /* duże kafelki: 2 kolumny na telefonie (4 na iPadzie), logo w górnej części, nazwa pod spodem */
-    int cols = b.size.width >= 600.0f ? 4 : 2;
-    CGFloat gap = 10.0f;
-    CGFloat tw = (CGFloat)(int)((b.size.width - gap * (cols + 1)) / cols);
-    fl.itemSize = CGSizeMake(tw, 150.0f);
-    fl.minimumInteritemSpacing = gap;
-    fl.minimumLineSpacing = gap;
-    fl.sectionInset = UIEdgeInsetsMake(gap, gap, gap, gap);
+    /* duże kafelki: logo w górnej części, nazwa pod spodem; liczba kolumn zależy od szerokości ekranu */
+    fl.minimumInteritemSpacing = 10.0f;
+    fl.minimumLineSpacing = 10.0f;
+    fl.sectionInset = UIEdgeInsetsMake(10, 10, 10, 10);
+    [self fitTilesIn:fl width:b.size.width];
     self.grid = [[UICollectionView alloc] initWithFrame:CGRectMake(0, sh, b.size.width, b.size.height - sh) collectionViewLayout:fl];
     self.grid.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     self.grid.backgroundColor = [UIColor clearColor];
@@ -139,9 +160,25 @@ static const CGFloat kGridMonogram = 76.0f;
     M3UBreadcrumb([NSString stringWithFormat:@"ekran kanałów: viewDidLoad koniec (kafelki=%d)", (int)self.gridMode]);
 }
 
+/* Dobiera szerokość kafelków do szerokości ekranu: 2 kolumny w pionie, 3 w poziomie na telefonie, więcej na iPadzie. */
+- (void)fitTilesIn:(UICollectionViewFlowLayout *)fl width:(CGFloat)w
+{
+    int cols = w >= 900.0f ? 5 : (w >= 600.0f ? 4 : (w >= 400.0f ? 3 : 2));
+    CGFloat gap = 10.0f;
+    CGFloat tw = (CGFloat)(int)((w - gap * (cols + 1)) / cols);
+    fl.itemSize = CGSizeMake(tw, 150.0f);
+}
+
 - (void)viewDidLayoutSubviews
 {
     [super viewDidLayoutSubviews];
+    UICollectionViewFlowLayout *fl = (UICollectionViewFlowLayout *)self.grid.collectionViewLayout;
+    CGFloat w = self.grid.bounds.size.width;
+    if (fl && w > 0 && w != self.gridWidth) {
+        self.gridWidth = w;
+        [self fitTilesIn:fl width:w];
+        [fl invalidateLayout];
+    }
     [self layoutMessage];
 }
 
@@ -159,10 +196,12 @@ static const CGFloat kGridMonogram = 76.0f;
 
 #pragma mark - Układ: lista albo kafelki
 
+- (BOOL)gridActive { return self.gridMode && !self.categoryMode; }
+
 - (void)applyLayoutMode
 {
-    self.table.hidden = self.gridMode;
-    self.grid.hidden = !self.gridMode;
+    self.table.hidden = [self gridActive];
+    self.grid.hidden = ![self gridActive];
 }
 
 - (void)toggleLayout
@@ -180,7 +219,7 @@ static const CGFloat kGridMonogram = 76.0f;
     UIBarButtonItem *layout = [[UIBarButtonItem alloc] initWithImage:M3UBarIcon(self.gridMode ? @"ico_list" : @"ico_grid")
                                                                style:UIBarButtonItemStyleBordered
                                                               target:self action:@selector(toggleLayout)];
-    if (self.favoritesMode) {
+    if (self.favoritesMode || self.presetEntries) {
         self.navigationItem.rightBarButtonItem = layout;
         return;
     }
@@ -293,6 +332,7 @@ static const CGFloat kGridMonogram = 76.0f;
             }
         }
         self.found = hits;
+        self.categoryMode = NO;
         self.groupNames = nil;
         self.groupRows = nil;
         if ([self.entries count]) self.message = [hits count] ? nil : @"Brak wyników.";
@@ -310,6 +350,7 @@ static const CGFloat kGridMonogram = 76.0f;
         for (NSString *g in names) [rowsList addObject:[byName objectForKey:g]];
         self.groupNames = names;
         self.groupRows = rowsList;
+        self.categoryMode = !self.favoritesMode && !self.presetEntries && [names count] >= 2;
         if ([self.entries count]) self.message = nil;
     }
     M3UBreadcrumb([NSString stringWithFormat:@"grupy: %d, odświeżam widok", (int)[self.groupNames count]]);
@@ -321,7 +362,8 @@ static const CGFloat kGridMonogram = 76.0f;
 - (void)reloadContent
 {
     if (!self.isViewLoaded) return;
-    if (self.gridMode) [self.grid reloadData]; else [self.table reloadData];
+    [self applyLayoutMode];
+    if ([self gridActive]) [self.grid reloadData]; else [self.table reloadData];
     [self layoutMessage];
 }
 
@@ -336,7 +378,7 @@ static const CGFloat kGridMonogram = 76.0f;
     self.messageLabel.frame = CGRectMake(20, 44.0f + 36.0f, w, s.height);
 }
 
-- (NSInteger)sectionCount { return self.found ? 1 : (NSInteger)[self.groupNames count]; }
+- (NSInteger)sectionCount { return (self.found || self.categoryMode) ? 1 : (NSInteger)[self.groupNames count]; }
 
 - (NSArray *)rowsInSection:(NSInteger)s
 {
@@ -352,7 +394,7 @@ static const CGFloat kGridMonogram = 76.0f;
 
 - (NSString *)headerText:(NSInteger)s
 {
-    if (self.found || s >= (NSInteger)[self.groupNames count]) return nil;
+    if (self.found || self.categoryMode || self.groupLocked || s >= (NSInteger)[self.groupNames count]) return nil;
     NSString *g = [self.groupNames objectAtIndex:(NSUInteger)s];
     /* Jedna, nienazwana grupa nie potrzebuje nagłówka. */
     if ([self.groupNames count] == 1 && ![g length]) return nil;
@@ -382,6 +424,7 @@ static const CGFloat kGridMonogram = 76.0f;
 
 - (BOOL)isLogoVisible:(NSString *)url
 {
+    if (self.categoryMode) return NO;
     if (self.gridMode) {
         for (NSIndexPath *ip in [self.grid indexPathsForVisibleItems])
             if ([[self entryAtSection:ip.section row:ip.item].logo isEqualToString:url]) return YES;
@@ -401,7 +444,7 @@ static const CGFloat kGridMonogram = 76.0f;
 
 - (void)refreshVisibleLogos
 {
-    if (!self.isViewLoaded) return;
+    if (!self.isViewLoaded || self.categoryMode) return;
     if (self.gridMode) {
         for (UICollectionViewCell *c in [self.grid visibleCells]) {
             NSIndexPath *ip = [self.grid indexPathForCell:c];
@@ -453,7 +496,45 @@ static const CGFloat kGridMonogram = 76.0f;
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return [self sectionCount]; }
 
-- (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s { return (NSInteger)[[self rowsInSection:s] count]; }
+- (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s
+{
+    if (self.categoryMode) return 2 + (NSInteger)[self.groupNames count];
+    return (NSInteger)[[self rowsInSection:s] count];
+}
+
+#pragma mark - Kategorie
+
+/* Nazwa, liczba kanałów i płytka wiersza kategorii: 0 = Ulubione, 1 = Wszystkie, dalej grupy z playlisty. */
+- (NSString *)categoryName:(NSInteger)r
+{
+    if (r == 0) return @"Ulubione";
+    if (r == 1) return @"Wszystkie kanały";
+    NSString *g = [self.groupNames objectAtIndex:(NSUInteger)(r - 2)];
+    return [g length] ? g : @"Bez grupy";
+}
+
+- (NSInteger)categoryCount:(NSInteger)r
+{
+    if (r == 0) return (NSInteger)[M3UFavorites() count];
+    if (r == 1) return (NSInteger)[self.entries count];
+    return (NSInteger)[[self.groupRows objectAtIndex:(NSUInteger)(r - 2)] count];
+}
+
+- (void)openCategory:(NSInteger)r
+{
+    UIViewController *vc;
+    if (r == 0) {
+        vc = [[M3UChannelsController alloc] initWithFavorites];
+    } else if (r == 1) {
+        vc = [[M3UChannelsController alloc] initWithEntries:self.entries group:nil title:@"Wszystkie kanały"];
+    } else {
+        NSString *g = [self.groupNames objectAtIndex:(NSUInteger)(r - 2)];
+        vc = [[M3UChannelsController alloc] initWithEntries:self.entries group:g title:[self categoryName:r]];
+    }
+    M3UBreadcrumb([NSString stringWithFormat:@"otwieram kategorię: %@", [self categoryName:r]]);
+    [self.navigationController pushViewController:vc animated:YES];
+}
+
 
 - (UIView *)tableView:(UITableView *)tv viewForHeaderInSection:(NSInteger)s
 {
@@ -470,6 +551,17 @@ static const CGFloat kGridMonogram = 76.0f;
 
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip
 {
+    if (self.categoryMode) {
+        UITableViewCell *cc = [tv dequeueReusableCellWithIdentifier:@"cat"];
+        if (!cc) cc = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1 reuseIdentifier:@"cat"];
+        M3UStyleCell(cc);
+        NSString *nm = [self categoryName:ip.row];
+        cc.imageView.image = M3UMonogramTile(ip.row == 0 ? @"★" : nm, kListTile);
+        cc.textLabel.text = nm;
+        cc.detailTextLabel.text = [NSString stringWithFormat:@"%d", (int)[self categoryCount:ip.row]];
+        cc.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+        return cc;
+    }
     if (ip.row == 0) M3UBreadcrumb([NSString stringWithFormat:@"wiersz listy: sekcja %d, pierwszy", (int)ip.section]);
     static NSString *ident = @"k";
     UITableViewCell *cell = [tv dequeueReusableCellWithIdentifier:ident];
@@ -488,6 +580,7 @@ static const CGFloat kGridMonogram = 76.0f;
 {
     [tv deselectRowAtIndexPath:ip animated:YES];
     [self.search resignFirstResponder];
+    if (self.categoryMode) { [self openCategory:ip.row]; return; }
     M3UEntry *e = [self entryAtSection:ip.section row:ip.row];
     if (e) [self play:e];
 }
@@ -536,7 +629,7 @@ static const CGFloat kGridMonogram = 76.0f;
 
 - (void)longPressed:(UILongPressGestureRecognizer *)g
 {
-    if (g.state != UIGestureRecognizerStateBegan) return;
+    if (g.state != UIGestureRecognizerStateBegan || self.categoryMode) return;
     CGPoint p = [g locationInView:g.view];
     M3UEntry *e = nil;
     if (g.view == self.table) {

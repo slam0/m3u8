@@ -12,6 +12,8 @@
 
 @implementation M3UPlaylistsController
 
+M3U_ROTATE_ANY
+
 - (id)init
 {
     self = [super initWithStyle:UITableViewStylePlain];

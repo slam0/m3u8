@@ -15,3 +15,13 @@ UIView *M3UFooterView(NSString *text, CGFloat w);  /* tekst pod listą, na lnie 
 CGFloat M3UFooterHeight(NSString *text, CGFloat w);
 UIImage *M3UGlyphTile(int kind, CGFloat side);     /* płytka z symbolem: 0 gwiazdka, 1 lista, 2 plik */
 UIImage *M3UBarIcon(NSString *name);               /* ikona na przycisk paska: @"ico_list" / @"ico_grid" */
+
+/* Obracanie ekranu (iOS 5 i iOS 6+): wszystkie ekrany poza kreatorem startowym */
+#define M3U_ROTATE_ANY \
+    - (BOOL)shouldAutorotate { return YES; } \
+    - (UIInterfaceOrientationMask)supportedInterfaceOrientations { return UIInterfaceOrientationMaskAllButUpsideDown; } \
+    - (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)o { return o != UIInterfaceOrientationPortraitUpsideDown; }
+#define M3U_ROTATE_PORTRAIT \
+    - (BOOL)shouldAutorotate { return NO; } \
+    - (UIInterfaceOrientationMask)supportedInterfaceOrientations { return UIInterfaceOrientationMaskPortrait; } \
+    - (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)o { return o == UIInterfaceOrientationPortrait; }
