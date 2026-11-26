@@ -5,6 +5,7 @@
 #import "M3UTheme.h"
 #import "M3UTiles.h"
 #import "M3UDiag.h"
+#import "M3UPlayerController.h"
 #import <MediaPlayer/MediaPlayer.h>
 #import "M3ULocalization.h"
 
@@ -717,6 +718,18 @@ M3U_ROTATE_ANY
     NSString *scheme = [[u scheme] lowercaseString];
     if (!u || !([scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"])) {
         [self showError:[NSString stringWithFormat:L(@"iOS 6 odtworzy tylko strumienie HLS przez http lub https. Ten kanał używa „%@”."), scheme ?: @"?"]];
+        return;
+    }
+    if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {          /* iPad: własny odtwarzacz z panelami (lista kanałów, program) */
+        NSArray *flat = self.found;
+        if (!flat) {
+            NSMutableArray *all = [NSMutableArray array];
+            for (NSArray *r in self.groupRows) [all addObjectsFromArray:r];
+            flat = all;
+        }
+        if (![flat count]) flat = [NSArray arrayWithObject:e];
+        M3UPlayerController *pc = [[M3UPlayerController alloc] initWithEntries:flat current:e];
+        [self presentViewController:pc animated:YES completion:nil];
         return;
     }
     MPMoviePlayerViewController *mp = [[MPMoviePlayerViewController alloc] initWithContentURL:u];
