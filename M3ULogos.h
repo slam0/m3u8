@@ -12,4 +12,6 @@ UIImage *M3UCachedLogoTile(NSString *url, CGFloat side);         /* kafelek z lo
 BOOL M3ULogoFailed(NSString *url);                               /* YES, jeśli logo się nie pobrało */
 NSString *M3ULogoStatus(NSString *url);                          /* opis stanu dla ekranu „Szczegóły” */
 /* Prosi o pobranie. stillNeeded woła się tuż przed pobraniem - gdy zwróci NO (wiersz przewinięty), pomijamy. */
+unsigned long long M3ULogoCacheBytes(void);                       /* rozmiar logo zapisanych na dysku */
+void M3UClearLogoCache(void);                                    /* kasuje logo z dysku (pobiorą się ponownie) */
 void M3URequestLogo(NSString *url, CGFloat side, BOOL (^stillNeeded)(void));

@@ -2,6 +2,7 @@
 #import <QuartzCore/QuartzCore.h>
 #import "M3UTheme.h"
 #import "M3UStore.h"
+#import "M3ULocalization.h"
 
 static NSString *const kSetupDone = @"setup_done";
 static NSString *const kLayoutKey = @"layout_grid";
@@ -147,7 +148,7 @@ static UIImageView *glassPanel(CGRect frame)
     [self.mainButton addTarget:self action:@selector(nextTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:self.mainButton];
 
-    self.skipButton = barButton(@"Pomiń", CGRectMake(W - 86, 10, 76, 32), self, @selector(skipTapped));
+    self.skipButton = barButton(L(@"Pomiń"), CGRectMake(W - 86, 10, 76, 32), self, @selector(skipTapped));
     self.skipButton.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin;
     [self.view addSubview:self.skipButton];
 
@@ -167,12 +168,12 @@ static UIImageView *glassPanel(CGRect frame)
     icon.frame = CGRectMake((W - 110) / 2.0f, 40 + e * 0.6f, 110, 110);
     [p addSubview:icon];
     CGFloat y = 168 + e;
-    [p addSubview:makeLabel(@"Witaj w iSat", CGRectMake(0, y, W, 36), 28, YES, softWhite(), NSTextAlignmentCenter)];
-    [p addSubview:makeLabel(@"Czytnik playlist M3U i M3U8", CGRectMake(0, y + 40, W, 22), 16, NO, softBlue(), NSTextAlignmentCenter)];
-    [p addSubview:makeLabel(@"kanały z ikonami, ulubione, odtwarzanie", CGRectMake(0, y + 64, W, 20), 13, NO, softBlue(), NSTextAlignmentCenter)];
+    [p addSubview:makeLabel(L(@"Witaj w iSat"), CGRectMake(0, y, W, 36), 28, YES, softWhite(), NSTextAlignmentCenter)];
+    [p addSubview:makeLabel(L(@"Czytnik playlist M3U i M3U8"), CGRectMake(0, y + 40, W, 22), 16, NO, softBlue(), NSTextAlignmentCenter)];
+    [p addSubview:makeLabel(L(@"kanały z ikonami, ulubione, odtwarzanie"), CGRectMake(0, y + 64, W, 20), 13, NO, softBlue(), NSTextAlignmentCenter)];
     UIImageView *panel = glassPanel(CGRectMake(24, y + 100, W - 48, 62));
     [p addSubview:panel];
-    [p addSubview:makeLabel(@"Do startu potrzebujesz tylko\nadresu swojej playlisty", CGRectMake(24, y + 108, W - 48, 46), 15, YES, softWhite(), NSTextAlignmentCenter)];
+    [p addSubview:makeLabel(L(@"Do startu potrzebujesz tylko\nadresu swojej playlisty"), CGRectMake(24, y + 108, W - 48, 46), 15, YES, softWhite(), NSTextAlignmentCenter)];
     [self.pager addSubview:p];
 }
 
@@ -180,12 +181,12 @@ static UIImageView *glassPanel(CGRect frame)
 {
     UIView *p = [[UIView alloc] initWithFrame:f];
     CGFloat W = f.size.width;
-    [p addSubview:makeLabel(@"Dodaj playlistę", CGRectMake(0, 44, W, 34), 26, YES, softWhite(), NSTextAlignmentCenter)];
-    [p addSubview:makeLabel(@"Trzy sposoby, wybierz jeden", CGRectMake(0, 80, W, 20), 14, NO, softBlue(), NSTextAlignmentCenter)];
+    [p addSubview:makeLabel(L(@"Dodaj playlistę"), CGRectMake(0, 44, W, 34), 26, YES, softWhite(), NSTextAlignmentCenter)];
+    [p addSubview:makeLabel(L(@"Trzy sposoby, wybierz jeden"), CGRectMake(0, 80, W, 20), 14, NO, softBlue(), NSTextAlignmentCenter)];
     NSArray *items = [NSArray arrayWithObjects:
-        [NSArray arrayWithObjects:@"Adres z internetu", @"wklej link do pliku .m3u lub .m3u8", nil],
-        [NSArray arrayWithObjects:@"Schowek", @"jedno dotknięcie, jeśli już skopiowałeś link", nil],
-        [NSArray arrayWithObjects:@"Plik w aplikacji", @"wyślij plik przez „Otwórz w…” albo iTunes", nil], nil];
+        [NSArray arrayWithObjects:L(@"Adres z internetu"), L(@"wklej link do pliku .m3u lub .m3u8"), nil],
+        [NSArray arrayWithObjects:L(@"Schowek"), L(@"jedno dotknięcie, jeśli już skopiowałeś link"), nil],
+        [NSArray arrayWithObjects:L(@"Plik w aplikacji"), L(@"wyślij plik przez „Otwórz w…” albo iTunes"), nil], nil];
     CGFloat cardH = 72.0f, gap = 8.0f + e * 0.3f, y = 112 + e * 0.3f;
     for (NSUInteger i = 0; i < 3; i++) {
         [p addSubview:glassPanel(CGRectMake(16, y, W - 32, cardH))];
@@ -212,22 +213,22 @@ static UIImageView *glassPanel(CGRect frame)
     icon.frame = CGRectMake((W - 60) / 2.0f, 36 + e * 0.2f, 60, 60);
     [p addSubview:icon];
     CGFloat y0 = 104 + e * 0.2f;
-    [p addSubview:makeLabel(@"Konfiguracja iSat", CGRectMake(0, y0, W, 30), 22, YES, softWhite(), NSTextAlignmentCenter)];
-    [p addSubview:makeLabel(@"Dodaj swoją pierwszą playlistę", CGRectMake(0, y0 + 32, W, 18), 13, NO, softBlue(), NSTextAlignmentCenter)];
+    [p addSubview:makeLabel(L(@"Konfiguracja iSat"), CGRectMake(0, y0, W, 30), 22, YES, softWhite(), NSTextAlignmentCenter)];
+    [p addSubview:makeLabel(L(@"Dodaj swoją pierwszą playlistę"), CGRectMake(0, y0 + 32, W, 18), 13, NO, softBlue(), NSTextAlignmentCenter)];
     CGFloat py = y0 + 60;
     [p addSubview:glassPanel(CGRectMake(14, py, W - 28, 186))];
-    [p addSubview:makeLabel(@"NAZWA", CGRectMake(28, py + 8, W - 56, 16), 11, YES, softBlue(), NSTextAlignmentLeft)];
-    self.nameField = [self makeField:@"np. Moja telewizja" frame:CGRectMake(26, py + 26, W - 52, 32)];
+    [p addSubview:makeLabel(L(@"NAZWA"), CGRectMake(28, py + 8, W - 56, 16), 11, YES, softBlue(), NSTextAlignmentLeft)];
+    self.nameField = [self makeField:L(@"np. Moja telewizja") frame:CGRectMake(26, py + 26, W - 52, 32)];
     self.nameField.autocapitalizationType = UITextAutocapitalizationTypeSentences;
     self.nameField.returnKeyType = UIReturnKeyNext;
     [p addSubview:self.nameField];
-    [p addSubview:makeLabel(@"ADRES PLAYLISTY (M3U / M3U8)", CGRectMake(28, py + 66, W - 56, 16), 11, YES, softBlue(), NSTextAlignmentLeft)];
+    [p addSubview:makeLabel(L(@"ADRES PLAYLISTY (M3U / M3U8)"), CGRectMake(28, py + 66, W - 56, 16), 11, YES, softBlue(), NSTextAlignmentLeft)];
     self.urlField = [self makeField:@"http://…" frame:CGRectMake(26, py + 84, W - 52, 32)];
     self.urlField.keyboardType = UIKeyboardTypeURL;
     self.urlField.returnKeyType = UIReturnKeyDone;
     [p addSubview:self.urlField];
     self.urlFieldBottom = py + 84 + 32;
-    [p addSubview:barButton(@"Wklej adres ze schowka", CGRectMake(26, py + 132, W - 52, 40), self, @selector(pasteTapped))];
+    [p addSubview:barButton(L(@"Wklej adres ze schowka"), CGRectMake(26, py + 132, W - 52, 40), self, @selector(pasteTapped))];
     [self.pager addSubview:p];
 }
 
@@ -235,8 +236,8 @@ static UIImageView *glassPanel(CGRect frame)
 {
     UIView *p = [[UIView alloc] initWithFrame:f];
     CGFloat W = f.size.width;
-    [p addSubview:makeLabel(@"Wybierz wygląd", CGRectMake(0, 44, W, 34), 26, YES, softWhite(), NSTextAlignmentCenter)];
-    [p addSubview:makeLabel(@"Zmienisz go później jednym przyciskiem", CGRectMake(0, 80, W, 20), 13, NO, softBlue(), NSTextAlignmentCenter)];
+    [p addSubview:makeLabel(L(@"Wybierz wygląd"), CGRectMake(0, 44, W, 34), 26, YES, softWhite(), NSTextAlignmentCenter)];
+    [p addSubview:makeLabel(L(@"Zmienisz go później jednym przyciskiem"), CGRectMake(0, 80, W, 20), 13, NO, softBlue(), NSTextAlignmentCenter)];
     CGFloat cw = (W - 44) / 2.0f, y = 116 + e * 0.3f, ch = 220;
     for (int i = 0; i < 2; i++) {
         UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
@@ -250,7 +251,7 @@ static UIImageView *glassPanel(CGRect frame)
         mini.frame = CGRectMake((cw - 110) / 2.0f, 14, 110, 150);
         mini.userInteractionEnabled = NO;
         [b addSubview:mini];
-        UILabel *l = makeLabel(i == 0 ? @"Lista" : @"Kafelki", CGRectMake(0, 176, cw, 30), 17, YES, softWhite(), NSTextAlignmentCenter);
+        UILabel *l = makeLabel(i == 0 ? L(@"Lista") : L(@"Kafelki"), CGRectMake(0, 176, cw, 30), 17, YES, softWhite(), NSTextAlignmentCenter);
         l.userInteractionEnabled = NO;
         [b addSubview:l];
         [p addSubview:b];
@@ -277,7 +278,7 @@ static UIImageView *glassPanel(CGRect frame)
 - (void)updateControls
 {
     self.dots.currentPage = self.page;
-    [self.mainButton setTitle:(self.page == kPages - 1 ? @"Zaczynamy!" : @"Dalej") forState:UIControlStateNormal];
+    [self.mainButton setTitle:(self.page == kPages - 1 ? L(@"Zaczynamy!") : L(@"Dalej")) forState:UIControlStateNormal];
 }
 
 - (void)scrollViewDidScroll:(UIScrollView *)sv
@@ -327,12 +328,12 @@ static UIImageView *glassPanel(CGRect frame)
     if (self.page == 2) {                                         /* formularz: sprawdzamy adres przed pójściem dalej */
         BOOL invalid = NO;
         [self playlistFromForm:&invalid];
-        if (invalid) { [self alert:@"Adres musi zaczynać się od http:// lub https://"]; return; }
+        if (invalid) { [self alert:L(@"Adres musi zaczynać się od http:// lub https://")]; return; }
     }
     if (self.page < kPages - 1) { [self goToPage:self.page + 1]; return; }
     BOOL invalid = NO;
     NSDictionary *pl = [self playlistFromForm:&invalid];
-    if (invalid) { [self alert:@"Adres playlisty musi zaczynać się od http:// lub https://"]; [self goToPage:2]; return; }
+    if (invalid) { [self alert:L(@"Adres playlisty musi zaczynać się od http:// lub https://")]; [self goToPage:2]; return; }
     [[NSUserDefaults standardUserDefaults] setBool:self.gridSelected forKey:kLayoutKey];
     [self finishWithPlaylist:pl];
 }
@@ -355,7 +356,7 @@ static UIImageView *glassPanel(CGRect frame)
     NSString *s = [[UIPasteboard generalPasteboard].string stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
     NSString *lower = [s lowercaseString];
     if (![s length] || !([lower hasPrefix:@"http://"] || [lower hasPrefix:@"https://"])) {
-        [self alert:@"W schowku nie ma adresu http:// ani https://. Skopiuj link do playlisty i spróbuj jeszcze raz."];
+        [self alert:L(@"W schowku nie ma adresu http:// ani https://. Skopiuj link do playlisty i spróbuj jeszcze raz.")];
         return;
     }
     self.urlField.text = s;

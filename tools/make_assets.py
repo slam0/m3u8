@@ -382,6 +382,32 @@ def rail_glyphs():
     save(im, 'rail_plus')
 
 
+def tab_assets():
+    """Zębatka dla przycisku Ustawienia oraz rozciągliwe tło zaznaczonej zakładki dolnego paska."""
+    import math
+    K = 8; S = 52 * K; c = S / 2
+    im = Image.new('RGBA', (S, S), (0, 0, 0, 0)); d = ImageDraw.Draw(im); WHT = (238, 243, 252, 255)
+    for i in range(8):
+        a = i * math.pi / 4
+        pts = [(c + math.cos(a + o) * r, c + math.sin(a + o) * r) for r, o in ((S * 0.30, -0.22), (S * 0.46, -0.16), (S * 0.46, 0.16), (S * 0.30, 0.22))]
+        d.polygon(pts, fill=WHT)
+    d.ellipse((c - S * 0.34, c - S * 0.34, c + S * 0.34, c + S * 0.34), fill=WHT)
+    hole = Image.new('L', (S, S), 255); ImageDraw.Draw(hole).ellipse((c - S * 0.15, c - S * 0.15, c + S * 0.15, c + S * 0.15), fill=0)
+    im.putalpha(Image.composite(im.split()[3], Image.new('L', (S, S), 0), hole))
+    g = im.resize((52, 52), Image.LANCZOS)
+    g.save(os.path.join(OUT, 'rail_gear@2x.png')); g.resize((26, 26), Image.LANCZOS).save(os.path.join(OUT, 'rail_gear.png'))
+    # zaznaczona zakładka: niebieski zaokrąglony prostokąt z jasnym obrysem (64 px = 32 pt, rozciągany)
+    S2 = 64 * 4
+    t = Image.new('RGBA', (S2, S2), (0, 0, 0, 0)); td = ImageDraw.Draw(t)
+    td.rounded_rectangle((0, 0, S2 - 1, S2 - 1), radius=14 * 4, fill=(180, 215, 255, 220))
+    inner = Image.new('RGBA', (S2, S2), (0, 0, 0, 0)); idr = ImageDraw.Draw(inner)
+    idr.rounded_rectangle((3 * 4, 3 * 4, S2 - 1 - 3 * 4, S2 - 1 - 3 * 4), radius=12 * 4, fill=(70, 150, 255, 235))
+    t = Image.alpha_composite(t, inner)
+    hl = Image.new('RGBA', (S2, S2), (0, 0, 0, 0)); ImageDraw.Draw(hl).rounded_rectangle((5 * 4, 4 * 4, S2 - 1 - 5 * 4, S2 // 2), radius=10 * 4, fill=(255, 255, 255, 46))
+    t = Image.alpha_composite(t, hl)
+    t2 = t.resize((64, 64), Image.LANCZOS); t2.save(os.path.join(OUT, 'tab_sel@2x.png')); t2.resize((32, 32), Image.LANCZOS).save(os.path.join(OUT, 'tab_sel.png'))
+
+
 def ipad_icons_and_launch(icon):
     for name, sz in (('Icon-72.png', 72), ('Icon-72@2x.png', 144), ('Icon-Small-50.png', 50), ('Icon-Small-50@2x.png', 100)):
         icon.resize((sz, sz), Image.LANCZOS).save(os.path.join(OUT, name))
@@ -411,5 +437,5 @@ if __name__ == '__main__':
     stretch_row('cell_sel', (66, 134, 236), (30, 84, 190), (160, 204, 255), (12, 38, 98), alpha=0.92)
     buttons(); tile_card(); icons_bar(); setup_assets()
     icons_and_launch(icon_1024())
-    sized_backgrounds(); ipad_icons_and_launch(icon_1024()); rail_glyphs()
+    sized_backgrounds(); ipad_icons_and_launch(icon_1024()); rail_glyphs(); tab_assets()
     print('gotowe:', sorted(os.listdir(OUT)))

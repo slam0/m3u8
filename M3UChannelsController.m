@@ -6,6 +6,7 @@
 #import "M3UTiles.h"
 #import "M3UDiag.h"
 #import <MediaPlayer/MediaPlayer.h>
+#import "M3ULocalization.h"
 
 static NSString *const kLayoutKey = @"layout_grid";
 static const CGFloat kListTile = 46.0f;
@@ -75,7 +76,7 @@ M3U_ROTATE_ANY
     self = [super initWithNibName:nil bundle:nil];
     if (self) {
         self.favoritesMode = YES;
-        self.title = @"Ulubione";
+        self.title = L(@"Ulubione");
     }
     return self;
 }
@@ -125,7 +126,7 @@ M3U_ROTATE_ANY
     self.search = [[UISearchBar alloc] initWithFrame:CGRectMake(0, 0, b.size.width, sh)];
     self.search.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     self.search.delegate = self;
-    self.search.placeholder = @"Szukaj kanału";
+    self.search.placeholder = L(@"Szukaj kanału");
     self.search.autocorrectionType = UITextAutocorrectionTypeNo;
     self.search.autocapitalizationType = UITextAutocapitalizationTypeNone;
     /* UISearchBar sam nie ma ustawienia wyglądu klawiatury w iOS 6 (to wywalało aplikację), więc ustawiamy je na jego polu tekstowym */
@@ -187,6 +188,8 @@ M3U_ROTATE_ANY
 - (void)viewWillAppear:(BOOL)animated
 {
     [super viewWillAppear:animated];
+    BOOL grid = [[NSUserDefaults standardUserDefaults] boolForKey:kLayoutKey];      /* mógł się zmienić w Ustawieniach */
+    if (grid != self.gridMode) { self.gridMode = grid; [self applyLayoutMode]; [self updateNavItems]; }
     if (self.favoritesMode) {
         [self loadFavorites];
     } else if (!self.entries && !self.loading) {
@@ -253,7 +256,7 @@ M3U_ROTATE_ANY
         list = [e.url length] ? [NSArray arrayWithObject:e] : [NSArray array];
     }
     self.entries = list;
-    self.message = [list count] ? nil : @"Nie znalazłem w tej liście żadnych kanałów.";
+    self.message = [list count] ? nil : L(@"Nie znalazłem w tej liście żadnych kanałów.");
     [self rebuild];
 }
 
@@ -269,7 +272,7 @@ M3U_ROTATE_ANY
         [list addObject:e];
     }
     self.entries = list;
-    self.message = [list count] ? nil : @"Brak ulubionych. Przytrzymaj kanał albo dotknij strzałki obok niego i wybierz „Dodaj do ulubionych”.";
+    self.message = [list count] ? nil : L(@"Brak ulubionych. Przytrzymaj kanał albo dotknij strzałki obok niego i wybierz „Dodaj do ulubionych”.");
     [self rebuild];
 }
 
@@ -279,7 +282,7 @@ M3U_ROTATE_ANY
     M3UBreadcrumb([NSString stringWithFormat:@"wczytuję playlistę (plik: %@)", file ?: @"nie, adres"]);
     if (file) {
         NSData *data = [NSData dataWithContentsOfFile:[M3UDocumentsPath() stringByAppendingPathComponent:file]];
-        if (!data) { self.entries = [NSArray array]; self.message = @"Nie mogę odczytać pliku."; [self rebuild]; return; }
+        if (!data) { self.entries = [NSArray array]; self.message = L(@"Nie mogę odczytać pliku."); [self rebuild]; return; }
         [self setEntriesFromText:M3UDecode(data)];
         return;
     }
@@ -301,7 +304,7 @@ M3U_ROTATE_ANY
 {
     self.loading = YES;
     [self updateNavItems];
-    if (!silent && ![self.entries count]) { self.message = @"Pobieram listę…"; [self reloadContent]; }
+    if (!silent && ![self.entries count]) { self.message = L(@"Pobieram listę…"); [self reloadContent]; }
     __weak M3UChannelsController *weakSelf = self;
     M3UFetch(url, ^(NSData *data, NSString *error) {
         M3UChannelsController *me = weakSelf;
@@ -337,7 +340,7 @@ M3U_ROTATE_ANY
         self.categoryMode = NO;
         self.groupNames = nil;
         self.groupRows = nil;
-        if ([self.entries count]) self.message = [hits count] ? nil : @"Brak wyników.";
+        if ([self.entries count]) self.message = [hits count] ? nil : L(@"Brak wyników.");
     } else {
         self.found = nil;
         NSMutableArray *names = [NSMutableArray array];
@@ -402,7 +405,7 @@ M3U_ROTATE_ANY
     NSString *g = [self.groupNames objectAtIndex:(NSUInteger)s];
     /* Jedna, nienazwana grupa nie potrzebuje nagłówka. */
     if ([self.groupNames count] == 1 && ![g length]) return nil;
-    return [g length] ? g : @"Bez grupy";
+    return [g length] ? g : L(@"Bez grupy");
 }
 
 #pragma mark - Ikonki kanałów
@@ -532,10 +535,10 @@ M3U_ROTATE_ANY
 /* Nazwa, liczba kanałów i płytka wiersza kategorii: 0 = Ulubione, 1 = Wszystkie, dalej grupy z playlisty. */
 - (NSString *)categoryName:(NSInteger)r
 {
-    if (r == 0) return @"Ulubione";
-    if (r == 1) return @"Wszystkie kanały";
+    if (r == 0) return L(@"Ulubione");
+    if (r == 1) return L(@"Wszystkie kanały");
     NSString *g = [self.catNames objectAtIndex:(NSUInteger)(r - 2)];
-    return [g length] ? g : @"Bez grupy";
+    return [g length] ? g : L(@"Bez grupy");
 }
 
 - (NSInteger)categoryCount:(NSInteger)r
@@ -551,7 +554,7 @@ M3U_ROTATE_ANY
     if (r == 0) {
         vc = [[M3UChannelsController alloc] initWithFavorites];
     } else if (r == 1) {
-        vc = [[M3UChannelsController alloc] initWithEntries:self.entries group:nil title:@"Wszystkie kanały"];
+        vc = [[M3UChannelsController alloc] initWithEntries:self.entries group:nil title:L(@"Wszystkie kanały")];
     } else {
         NSString *g = [self.catNames objectAtIndex:(NSUInteger)(r - 2)];
         vc = [[M3UChannelsController alloc] initWithEntries:self.entries group:g title:[self categoryName:r]];
@@ -672,10 +675,10 @@ M3U_ROTATE_ANY
     [self.search resignFirstResponder];
     self.actionEntry = e;
     BOOL fav = M3UIsFavorite(e.url);
-    UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:e.name delegate:self cancelButtonTitle:@"Anuluj"
+    UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:e.name delegate:self cancelButtonTitle:L(@"Anuluj")
                                          destructiveButtonTitle:nil
-                                              otherButtonTitles:fav ? @"Usuń z ulubionych" : @"Dodaj do ulubionych",
-                                                                @"Kopiuj adres", @"Szczegóły", nil];
+                                              otherButtonTitles:fav ? L(@"Usuń z ulubionych") : L(@"Dodaj do ulubionych"),
+                                                                L(@"Kopiuj adres"), L(@"Szczegóły"), nil];
     sheet.actionSheetStyle = UIActionSheetStyleBlackOpaque;
     [sheet showInView:self.view.window];
 }
@@ -690,9 +693,9 @@ M3U_ROTATE_ANY
     } else if (i == 1) {
         [UIPasteboard generalPasteboard].string = e.url;
     } else if (i == 2) {
-        NSString *msg = [NSString stringWithFormat:@"Grupa: %@\n\nAdres:\n%@\n\nLogo:\n%@\n%@",
-                         [e.group length] ? e.group : @"brak", e.url,
-                         [e.logo length] ? e.logo : @"brak", M3ULogoStatus(e.logo)];
+        NSString *msg = [NSString stringWithFormat:L(@"Grupa: %@\n\nAdres:\n%@\n\nLogo:\n%@\n%@"),
+                         [e.group length] ? e.group : L(@"brak"), e.url,
+                         [e.logo length] ? e.logo : L(@"brak"), M3ULogoStatus(e.logo)];
         [[[UIAlertView alloc] initWithTitle:e.name message:msg delegate:nil cancelButtonTitle:@"OK" otherButtonTitles:nil] show];
     }
 }
@@ -704,7 +707,7 @@ M3U_ROTATE_ANY
     NSURL *u = [NSURL URLWithString:e.url];
     NSString *scheme = [[u scheme] lowercaseString];
     if (!u || !([scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"])) {
-        [self showError:[NSString stringWithFormat:@"iOS 6 odtworzy tylko strumienie HLS przez http lub https. Ten kanał używa „%@”.", scheme ?: @"?"]];
+        [self showError:[NSString stringWithFormat:L(@"iOS 6 odtworzy tylko strumienie HLS przez http lub https. Ten kanał używa „%@”."), scheme ?: @"?"]];
         return;
     }
     MPMoviePlayerViewController *mp = [[MPMoviePlayerViewController alloc] initWithContentURL:u];
@@ -722,7 +725,7 @@ M3U_ROTATE_ANY
     self.player = nil;
     if ([reason intValue] == MPMovieFinishReasonPlaybackError) {
         [self dismissMoviePlayerViewControllerAnimated];
-        [self showError:@"Nie udało się odtworzyć kanału. iOS 6 obsługuje tylko HLS z obrazem H.264; kanał mógł też wymagać logowania albo być wyłączony."];
+        [self showError:L(@"Nie udało się odtworzyć kanału. iOS 6 obsługuje tylko HLS z obrazem H.264; kanał mógł też wymagać logowania albo być wyłączony.")];
     }
 }
 

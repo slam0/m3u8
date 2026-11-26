@@ -4,6 +4,7 @@
 #import "M3UStore.h"
 #import "M3UTheme.h"
 #import "M3UDiag.h"
+#import "M3ULocalization.h"
 
 @interface M3UPlaylistsController () <M3UAddDelegate>
 @property (nonatomic, strong) NSArray *playlists;
@@ -26,7 +27,7 @@ M3U_ROTATE_ANY
     [super viewDidLoad];
     M3UStyleTable(self.tableView);
     self.tableView.rowHeight = 56.0f;
-    self.navigationItem.backBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"Wstecz" style:UIBarButtonItemStyleBordered target:nil action:nil];
+    self.navigationItem.backBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:L(@"Wstecz") style:UIBarButtonItemStyleBordered target:nil action:nil];
     self.navigationItem.leftBarButtonItem = self.editButtonItem;
     self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd
                                                                                            target:self action:@selector(addTapped)];
@@ -84,17 +85,17 @@ M3U_ROTATE_ANY
 
 - (NSString *)headerText:(NSInteger)s
 {
-    if (s == 1) return @"Playlisty";
-    if (s == 2) return @"Pliki w aplikacji";
+    if (s == 1) return L(@"Playlisty");
+    if (s == 2) return L(@"Pliki w aplikacji");
     return nil;
 }
 
 - (NSString *)footerText:(NSInteger)s
 {
     if (s == 1 && ![self.playlists count])
-        return @"Dotknij +, żeby dodać adres playlisty (.m3u lub .m3u8).";
+        return L(@"Dotknij +, żeby dodać adres playlisty (.m3u lub .m3u8).");
     if (s == (NSInteger)([self.files count] ? 2 : 1))
-        return @"Pliki .m3u wrzucisz przez iTunes (karta Aplikacje → Udostępnianie plików) albo „Otwórz w…” z Safari.";
+        return L(@"Pliki .m3u wrzucisz przez iTunes (karta Aplikacje → Udostępnianie plików) albo „Otwórz w…” z Safari.");
     return nil;
 }
 
@@ -130,8 +131,8 @@ M3U_ROTATE_ANY
     M3UStyleCell(cell);
     if (ip.section == 0) {
         cell.imageView.image = M3UGlyphTile(0, 40.0f);
-        cell.textLabel.text = @"Ulubione";
-        cell.detailTextLabel.text = [NSString stringWithFormat:@"Kanałów: %lu", (unsigned long)[M3UFavorites() count]];
+        cell.textLabel.text = L(@"Ulubione");
+        cell.detailTextLabel.text = [NSString stringWithFormat:L(@"Kanałów: %lu"), (unsigned long)[M3UFavorites() count]];
     } else if (ip.section == 1) {
         NSDictionary *d = [self.playlists objectAtIndex:(NSUInteger)ip.row];
         cell.imageView.image = M3UGlyphTile(1, 40.0f);
@@ -141,7 +142,7 @@ M3U_ROTATE_ANY
         NSString *f = [self.files objectAtIndex:(NSUInteger)ip.row];
         cell.imageView.image = M3UGlyphTile(2, 40.0f);
         cell.textLabel.text = f;
-        cell.detailTextLabel.text = @"plik w aplikacji";
+        cell.detailTextLabel.text = L(@"plik w aplikacji");
     }
     return cell;
 }

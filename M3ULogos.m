@@ -1,4 +1,5 @@
 #import "M3ULogos.h"
+#import "M3ULocalization.h"
 
 NSString *const M3ULogoDidLoad = @"M3ULogoDidLoad";
 
@@ -212,12 +213,12 @@ BOOL M3ULogoFailed(NSString *url)
 NSString *M3ULogoStatus(NSString *url)
 {
     setup();
-    if (![url length]) return @"ta lista nie podaje logo dla tego kanału";
+    if (![url length]) return L(@"ta lista nie podaje logo dla tego kanału");
     NSString *why = [failed objectForKey:url];
-    if (why) return [@"nie pobrano: " stringByAppendingString:why];
-    for (NSString *k in [tiles allKeys]) if ([k hasSuffix:[@"|" stringByAppendingString:url]]) return @"pobrane";
-    for (NSString *k in inflight) if ([k hasSuffix:[@"|" stringByAppendingString:url]]) return @"pobieranie…";
-    return @"jeszcze nie pobierano (pojawi się po przewinięciu do kanału)";
+    if (why) return [L(@"nie pobrano: ") stringByAppendingString:why];
+    for (NSString *k in [tiles allKeys]) if ([k hasSuffix:[@"|" stringByAppendingString:url]]) return L(@"pobrane");
+    for (NSString *k in inflight) if ([k hasSuffix:[@"|" stringByAppendingString:url]]) return L(@"pobieranie…");
+    return L(@"jeszcze nie pobierano (pojawi się po przewinięciu do kanału)");
 }
 
 #pragma mark - Pobieranie
@@ -233,16 +234,37 @@ static NSString *diskPath(NSString *url)
     return [dir stringByAppendingPathComponent:[NSString stringWithFormat:@"%lx.img", h]];
 }
 
+static NSString *logoDir(void)
+{
+    return [[NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES) objectAtIndex:0] stringByAppendingPathComponent:@"logos"];
+}
+
+unsigned long long M3ULogoCacheBytes(void)
+{
+    unsigned long long total = 0;
+    NSFileManager *fm = [NSFileManager defaultManager];
+    for (NSString *f in [fm contentsOfDirectoryAtPath:logoDir() error:NULL]) {
+        NSDictionary *a = [fm attributesOfItemAtPath:[logoDir() stringByAppendingPathComponent:f] error:NULL];
+        total += [[a objectForKey:NSFileSize] unsignedLongLongValue];
+    }
+    return total;
+}
+
+void M3UClearLogoCache(void)
+{
+    [[NSFileManager defaultManager] removeItemAtPath:logoDir() error:NULL];
+}
+
 /* Jedna próba pobrania. Klasy sieciowe po nazwie (patrz M3UList.m). */
 static NSData *attempt(NSString *urlString, NSString **why)
 {
     NSURL *u = [NSURL URLWithString:urlString];
     NSString *scheme = [[u scheme] lowercaseString];
-    if (!u || !([scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"])) { *why = @"adres nie jest http(s)"; return nil; }
+    if (!u || !([scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"])) { *why = L(@"adres nie jest http(s)"); return nil; }
     Class reqClass = NSClassFromString(@"NSMutableURLRequest");
     Class connClass = NSClassFromString(@"NSURLConnection");
     Class httpClass = NSClassFromString(@"NSHTTPURLResponse");
-    if (!reqClass || !connClass || !httpClass) { *why = @"brak funkcji sieciowych"; return nil; }
+    if (!reqClass || !connClass || !httpClass) { *why = L(@"brak funkcji sieciowych"); return nil; }
     NSMutableURLRequest *req = [reqClass requestWithURL:u cachePolicy:NSURLRequestUseProtocolCachePolicy timeoutInterval:15.0];
     NSURLResponse *resp = nil;
     NSError *err = nil;
@@ -250,12 +272,12 @@ static NSData *attempt(NSString *urlString, NSString **why)
     NSInteger code = [resp isKindOfClass:httpClass] ? [(NSHTTPURLResponse *)resp statusCode] : 0;
     if (!d) {
         NSInteger c = [err code];
-        if ([[err domain] isEqualToString:@"NSURLErrorDomain"] && c <= -1200 && c >= -1206) *why = @"połączenie https nie powiodło się (stare SSL w iOS 6)";
-        else *why = [err localizedDescription] ?: @"brak odpowiedzi";
+        if ([[err domain] isEqualToString:@"NSURLErrorDomain"] && c <= -1200 && c >= -1206) *why = L(@"połączenie https nie powiodło się (stare SSL w iOS 6)");
+        else *why = [err localizedDescription] ?: L(@"brak odpowiedzi");
         return nil;
     }
-    if (code >= 400) { *why = [NSString stringWithFormat:@"serwer zwrócił błąd %d", (int)code]; return nil; }
-    if ([d length] > kMaxBytes) { *why = @"plik jest za duży"; return nil; }
+    if (code >= 400) { *why = [NSString stringWithFormat:L(@"serwer zwrócił błąd %d"), (int)code]; return nil; }
+    if ([d length] > kMaxBytes) { *why = L(@"plik jest za duży"); return nil; }
     return d;
 }
 
@@ -293,7 +315,7 @@ void M3URequestLogo(NSString *url, CGFloat side, BOOL (^stillNeeded)(void))
                 if (data && [UIImage imageWithData:data]) [data writeToFile:path atomically:YES];
             }
             UIImage *logo = data ? [UIImage imageWithData:data] : nil;
-            if (data && !logo) why = @"to nie jest obraz obsługiwany przez iOS 6 (np. WebP albo SVG)";
+            if (data && !logo) why = L(@"to nie jest obraz obsługiwany przez iOS 6 (np. WebP albo SVG)");
             UIImage *tile = logo ? (side > 0 ? composeLogoTile(logo, side) : composeLogoWide(logo)) : nil;
             dispatch_async(dispatch_get_main_queue(), ^{
                 [inflight removeObject:k];
@@ -301,7 +323,7 @@ void M3URequestLogo(NSString *url, CGFloat side, BOOL (^stillNeeded)(void))
                     if ([tiles count] >= 250) [tiles removeAllObjects];
                     [tiles setObject:tile forKey:k];
                 } else {
-                    [failed setObject:(why ?: @"nieznany błąd") forKey:url];
+                    [failed setObject:(why ?: L(@"nieznany błąd")) forKey:url];
                 }
                 [[NSNotificationCenter defaultCenter] postNotificationName:M3ULogoDidLoad object:nil];
             });

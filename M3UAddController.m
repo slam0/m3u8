@@ -1,5 +1,6 @@
 #import "M3UAddController.h"
 #import "M3UTheme.h"
+#import "M3ULocalization.h"
 
 @interface M3UAddController () <UITextFieldDelegate>
 @property (nonatomic, strong) UITextField *nameField;
@@ -13,7 +14,7 @@ M3U_ROTATE_ANY
 - (id)init
 {
     self = [super initWithStyle:UITableViewStylePlain];
-    if (self) self.title = @"Nowa playlista";
+    if (self) self.title = L(@"Nowa playlista");
     return self;
 }
 
@@ -35,7 +36,7 @@ M3U_ROTATE_ANY
 {
     [super viewDidLoad];
     M3UStyleTable(self.tableView);
-    self.nameField = [self makeField:@"np. Telewizja"];
+    self.nameField = [self makeField:L(@"np. Telewizja")];
     self.nameField.autocapitalizationType = UITextAutocapitalizationTypeSentences;
     self.nameField.returnKeyType = UIReturnKeyNext;
     self.urlField = [self makeField:@"http://…/lista.m3u8"];
@@ -43,7 +44,7 @@ M3U_ROTATE_ANY
     self.urlField.returnKeyType = UIReturnKeyDone;
     self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemCancel
                                                                                           target:self action:@selector(cancel)];
-    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"Zapisz" style:UIBarButtonItemStyleDone
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:L(@"Zapisz") style:UIBarButtonItemStyleDone
                                                                              target:self action:@selector(save)];
 }
 
@@ -62,7 +63,7 @@ M3U_ROTATE_ANY
     NSString *lower = [url lowercaseString];
     NSURL *u = [NSURL URLWithString:url];
     if (!u || !([lower hasPrefix:@"http://"] || [lower hasPrefix:@"https://"]) || ![[u host] length]) {
-        [self alert:@"Adres musi zaczynać się od http:// lub https://"];
+        [self alert:L(@"Adres musi zaczynać się od http:// lub https://")];
         return;
     }
     if (![name length]) name = [u host];
@@ -82,17 +83,17 @@ M3U_ROTATE_ANY
 
 - (UIView *)tableView:(UITableView *)tv viewForFooterInSection:(NSInteger)s
 {
-    return s == 0 ? M3UFooterView(@"Adres playlisty skopiujesz np. z panelu swojego dostawcy IPTV.", tv.bounds.size.width) : nil;
+    return s == 0 ? M3UFooterView(L(@"Adres playlisty skopiujesz np. z panelu swojego dostawcy IPTV."), tv.bounds.size.width) : nil;
 }
 
 - (CGFloat)tableView:(UITableView *)tv heightForFooterInSection:(NSInteger)s
 {
-    return s == 0 ? M3UFooterHeight(@"Adres playlisty skopiujesz np. z panelu swojego dostawcy IPTV.", tv.bounds.size.width) : 0.0f;
+    return s == 0 ? M3UFooterHeight(L(@"Adres playlisty skopiujesz np. z panelu swojego dostawcy IPTV."), tv.bounds.size.width) : 0.0f;
 }
 
 - (UIView *)tableView:(UITableView *)tv viewForHeaderInSection:(NSInteger)s
 {
-    return s == 0 ? M3UHeaderView(@"Dane playlisty") : nil;
+    return s == 0 ? M3UHeaderView(L(@"Dane playlisty")) : nil;
 }
 
 - (CGFloat)tableView:(UITableView *)tv heightForHeaderInSection:(NSInteger)s
@@ -105,14 +106,14 @@ M3U_ROTATE_ANY
     UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:nil];
     M3UStyleCell(cell);
     if (ip.section == 1) {
-        cell.textLabel.text = @"Wklej adres ze schowka";
+        cell.textLabel.text = L(@"Wklej adres ze schowka");
         cell.textLabel.textAlignment = NSTextAlignmentCenter;
         cell.textLabel.textColor = M3UAccentColor();
         return cell;
     }
     cell.selectionStyle = UITableViewCellSelectionStyleNone;
     UITextField *f = ip.row == 0 ? self.nameField : self.urlField;
-    cell.textLabel.text = ip.row == 0 ? @"Nazwa" : @"Adres";
+    cell.textLabel.text = ip.row == 0 ? L(@"Nazwa") : L(@"Adres");
     cell.textLabel.font = [UIFont boldSystemFontOfSize:15];
     f.textColor = M3UTextColor();
     CGRect fr = f.frame;
@@ -127,7 +128,7 @@ M3U_ROTATE_ANY
     [tv deselectRowAtIndexPath:ip animated:YES];
     if (ip.section != 1) return;
     NSString *s = [UIPasteboard generalPasteboard].string;
-    if (![s length]) { [self alert:@"Schowek jest pusty."]; return; }
+    if (![s length]) { [self alert:L(@"Schowek jest pusty.")]; return; }
     self.urlField.text = [s stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
 }
 

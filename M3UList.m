@@ -1,4 +1,5 @@
 #import "M3UList.h"
+#import "M3ULocalization.h"
 #include "m3u.h"
 
 @implementation M3UEntry
@@ -45,7 +46,7 @@ void M3UFetch(NSString *url, void (^done)(NSData *data, NSString *error))
     NSURL *u = [NSURL URLWithString:url];
     NSString *scheme = [[u scheme] lowercaseString];
     if (!u || !([scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"])) {
-        done(nil, @"Adres musi zaczynać się od http:// lub https://");
+        done(nil, L(@"Adres musi zaczynać się od http:// lub https://"));
         return;
     }
     /* Klasy sieciowe bierzemy po nazwie w czasie działania: SDK 9.3 wpisuje je do CFNetwork,
@@ -54,7 +55,7 @@ void M3UFetch(NSString *url, void (^done)(NSData *data, NSString *error))
     Class connClass = NSClassFromString(@"NSURLConnection");
     Class httpClass = NSClassFromString(@"NSHTTPURLResponse");
     if (!reqClass || !connClass || !httpClass) {
-        done(nil, @"Ten system nie ma potrzebnych funkcji sieciowych.");
+        done(nil, L(@"Ten system nie ma potrzebnych funkcji sieciowych."));
         return;
     }
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
@@ -69,15 +70,15 @@ void M3UFetch(NSString *url, void (^done)(NSData *data, NSString *error))
         NSString *msg = nil;
         if (!data) {
             if ([[err domain] isEqualToString:@"NSURLErrorDomain"] && [err code] <= -1200 && [err code] >= -1206) {
-                msg = @"Telefon nie mógł nawiązać bezpiecznego połączenia (HTTPS). Spróbuj adresu z http:// albo zainstaluj poprawkę SSL/TLS z Cydii i sprawdź datę w telefonie.";
+                msg = L(@"Telefon nie mógł nawiązać bezpiecznego połączenia (HTTPS). Spróbuj adresu z http:// albo zainstaluj poprawkę SSL/TLS z Cydii i sprawdź datę w telefonie.");
             } else {
-                msg = [NSString stringWithFormat:@"Nie udało się pobrać listy: %@", [err localizedDescription] ?: @"brak połączenia"];
+                msg = [NSString stringWithFormat:L(@"Nie udało się pobrać listy: %@"), [err localizedDescription] ?: L(@"brak połączenia")];
             }
         } else if (code >= 400) {
-            msg = [NSString stringWithFormat:@"Serwer zwrócił błąd %d", (int)code];
+            msg = [NSString stringWithFormat:L(@"Serwer zwrócił błąd %d"), (int)code];
             data = nil;
         } else if ([data length] == 0) {
-            msg = @"Lista jest pusta";
+            msg = L(@"Lista jest pusta");
             data = nil;
         }
         dispatch_async(dispatch_get_main_queue(), ^{ done(data, msg); });

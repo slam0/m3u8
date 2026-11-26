@@ -6,6 +6,8 @@
 #import "M3UDiag.h"
 #import "M3UTheme.h"
 #import "M3URailController.h"
+#import "M3USettingsController.h"
+#import "M3ULocalization.h"
 
 @interface AppDelegate () <M3USetupDelegate>
 @property (nonatomic, strong) UINavigationController *nav;
@@ -17,27 +19,18 @@
 {
     M3UDiagInstall();
     NSString *crash = M3UDiagCrashReportIfAny();
-    M3UBreadcrumb(@"start aplikacji 1.7.1");
+    M3UBreadcrumb(@"start aplikacji 1.8.0");
     M3UDiagMarkRunning(YES);
     M3UThemeApply();
     [application setStatusBarStyle:UIStatusBarStyleBlackOpaque];
     self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
-    self.nav = [[UINavigationController alloc] initWithRootViewController:[[M3UPlaylistsController alloc] init]];
-    /* iPad: pasek boczny z logo i funkcjami po lewej; iPhone: sama nawigacja */
-    if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad)
-        self.window.rootViewController = [[M3URailController alloc] initWithNavigation:self.nav];
-    else
-        self.window.rootViewController = self.nav;
+    self.window.rootViewController = [self buildRootShowingSettings:NO];
     [self.window makeKeyAndVisible];
     if ([M3USetupController needsSetup]) {
         /* ekran konfiguracji tylko przy pierwszym uruchomieniu (bez zapisanych playlist) */
-        dispatch_async(dispatch_get_main_queue(), ^{
-            M3USetupController *setup = [[M3USetupController alloc] init];
-            setup.delegate = self;
-            setup.modalTransitionStyle = UIModalTransitionStyleCrossDissolve;
-            [self.window.rootViewController presentViewController:setup animated:NO completion:nil];
-        });
+        dispatch_async(dispatch_get_main_queue(), ^{ [self showSetup]; });
     }
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(languageChanged) name:M3ULanguageDidChange object:nil];
     if (crash) {
         dispatch_async(dispatch_get_main_queue(), ^{
             NSString *msg = [@"Poprzednio aplikacja zamknęła się niespodziewanie (mogło też być zwykłe wyłączenie). Ostatnie kroki:\n\n" stringByAppendingString:crash];
@@ -45,6 +38,30 @@
         });
     }
     return YES;
+}
+
+/* Ekrany z dolnym (iPhone) lub bocznym (iPad) paskiem; po zmianie języka budujemy je od nowa. */
+- (UIViewController *)buildRootShowingSettings:(BOOL)settings
+{
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:[[M3UPlaylistsController alloc] init]];
+    if (settings) [nav pushViewController:[[M3USettingsController alloc] init] animated:NO];
+    self.nav = nav;
+    return [[M3URailController alloc] initWithNavigation:nav];
+}
+
+- (void)languageChanged
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        self.window.rootViewController = [self buildRootShowingSettings:YES];
+    });
+}
+
+- (void)showSetup
+{
+    M3USetupController *setup = [[M3USetupController alloc] init];
+    setup.delegate = self;
+    setup.modalTransitionStyle = UIModalTransitionStyleCrossDissolve;
+    [self.window.rootViewController presentViewController:setup animated:NO completion:nil];
 }
 
 - (void)applicationDidEnterBackground:(UIApplication *)application { M3UDiagMarkRunning(NO); }
