@@ -1,4 +1,4 @@
-iSAT 1.4.0 - aplikacja na iOS 6 (jailbreak)
+iSAT 1.5.0 - aplikacja na iOS 6 (jailbreak)
 
 CO TO ROBI
 - Dodajesz adres playlisty (.m3u / .m3u8) albo wrzucasz plik przez iTunes.
@@ -25,3 +25,7 @@ JAK ZBUDOWAĆ (tak samo jak Rozkład)
    (na Macu: Cmd+Shift+. pokazuje ukryte pliki).
 3. Zakładka Actions -> "Zbuduj aplikację" -> Run workflow.
 4. Po kilku minutach pobierz .deb (Cydia/dpkg) albo .ipa z wydania "najnowsza" (Releases).
+
+NOWE W 1.5.0: ekran konfiguracji przy pierwszym uruchomieniu (4 ekrany: powitanie, sposoby dodania
+playlisty, formularz z wklejaniem ze schowka, wybór wyglądu Lista/Kafelki). „Pomiń” jest na każdym ekranie.
+Pokazuje się tylko raz i tylko wtedy, gdy nie masz jeszcze zapisanych playlist.

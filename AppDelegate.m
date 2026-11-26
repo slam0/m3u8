@@ -1,7 +1,13 @@
 #import "AppDelegate.h"
 #import "M3UPlaylistsController.h"
+#import "M3UChannelsController.h"
+#import "M3USetupController.h"
 #import "M3UStore.h"
 #import "M3UTheme.h"
+
+@interface AppDelegate () <M3USetupDelegate>
+@property (nonatomic, strong) UINavigationController *nav;
+@end
 
 @implementation AppDelegate
 
@@ -10,10 +16,32 @@
     M3UThemeApply();
     [application setStatusBarStyle:UIStatusBarStyleBlackOpaque];
     self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
-    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:[[M3UPlaylistsController alloc] init]];
-    self.window.rootViewController = nav;
+    self.nav = [[UINavigationController alloc] initWithRootViewController:[[M3UPlaylistsController alloc] init]];
+    self.window.rootViewController = self.nav;
     [self.window makeKeyAndVisible];
+    if ([M3USetupController needsSetup]) {
+        /* ekran konfiguracji tylko przy pierwszym uruchomieniu (bez zapisanych playlist) */
+        dispatch_async(dispatch_get_main_queue(), ^{
+            M3USetupController *setup = [[M3USetupController alloc] init];
+            setup.delegate = self;
+            setup.modalTransitionStyle = UIModalTransitionStyleCrossDissolve;
+            [self.nav presentViewController:setup animated:NO completion:nil];
+        });
+    }
     return YES;
+}
+
+- (void)setupFinished:(M3USetupController *)c playlist:(NSDictionary *)playlist
+{
+    if (playlist) {
+        NSMutableArray *list = [M3UPlaylists() mutableCopy];
+        [list addObject:playlist];
+        M3USavePlaylists(list);
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UPlaylistsChanged" object:nil];
+        /* od razu pokazujemy kanały nowej playlisty (pod spodem, zanim zniknie ekran konfiguracji) */
+        [self.nav pushViewController:[[M3UChannelsController alloc] initWithPlaylist:playlist] animated:NO];
+    }
+    [self.nav dismissViewControllerAnimated:YES completion:nil];
 }
 
 /* „Otwórz w…” z Safari lub Poczty: kopiujemy plik do Documents i pokazujemy na liście. */

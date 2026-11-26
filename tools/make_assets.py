@@ -260,6 +260,43 @@ def icon_1024_default():
     return img.convert('RGB')
 
 
+
+def setup_assets():
+    """Grafiki ekranu konfiguracji: szklany panel, duży przycisk, ikona z połyskiem, miniatury układów."""
+    # szklany panel (rozciągliwy) - zwykły i zaznaczony
+    for name, a, border, bw in (('glass_panel', 128, (180, 210, 255, 80), 2), ('glass_panel_sel', 168, (150, 215, 255, 255), 4)):
+        w = h = 96; k = 4
+        m = Image.new('L', (w * k, h * k), 0); ImageDraw.Draw(m).rounded_rectangle((0, 0, w * k - 1, h * k - 1), radius=24 * k, fill=255)
+        body = Image.new('RGBA', (w * k, h * k), (10, 30, 90, a))
+        hl = Image.new('RGBA', (w * k, h * k), (0, 0, 0, 0)); ImageDraw.Draw(hl).rounded_rectangle((6 * k, 6 * k, (w - 6) * k, int(h * 0.46) * k), radius=18 * k, fill=(255, 255, 255, 26))
+        body = Image.alpha_composite(body, hl)
+        ring = Image.new('RGBA', (w * k, h * k), (0, 0, 0, 0)); ImageDraw.Draw(ring).rounded_rectangle((0, 0, w * k - 1, h * k - 1), radius=24 * k, outline=border, width=bw * k)
+        body = Image.alpha_composite(body, ring); body.putalpha(Image.fromarray((np.array(body.split()[3], int) * np.array(m, int) // 255).astype(np.uint8)))
+        body = body.resize((w, h), Image.LANCZOS); body.save(os.path.join(OUT, name + '@2x.png')); body.resize((w // 2, h // 2), Image.LANCZOS).save(os.path.join(OUT, name + '.png'))
+    # duży przycisk niebieski
+    m = mask_rounded(96, 88, 18)
+    glossy(m, 96, 88, (92, 160, 250), (24, 72, 178), 'btn_main', (6, 20, 70), (200, 224, 255), gloss=60)
+    glossy(m, 96, 88, (52, 104, 196), (14, 44, 120), 'btn_main_pressed', (6, 20, 70), (140, 180, 235), gloss=30)
+    # ikona aplikacji z zaokrągleniem i połyskiem (do ekranów powitalnych)
+    ic = icon_1024().resize((260, 260), Image.LANCZOS).convert('RGBA'); k = 4
+    mk = Image.new('L', (260 * k, 260 * k), 0); ImageDraw.Draw(mk).rounded_rectangle((0, 0, 260 * k - 1, 260 * k - 1), radius=int(260 * k * 0.2237), fill=255); mk = mk.resize((260, 260), Image.LANCZOS)
+    gl = Image.new('RGBA', (260, 260), (0, 0, 0, 0)); ImageDraw.Draw(gl).ellipse((-90, -247, 350, 130), fill=(255, 255, 255, 50))
+    gl.putalpha(Image.fromarray((np.array(gl.split()[3], int) * np.array(mk, int) // 255).astype(np.uint8)))
+    ic = Image.alpha_composite(ic, gl); ic.putalpha(mk); ic.save(os.path.join(OUT, 'setup_icon@2x.png')); ic.resize((130, 130), Image.LANCZOS).save(os.path.join(OUT, 'setup_icon.png'))
+    # miniatury układów: lista i kafelki (110x150 pt)
+    def mini(name, grid):
+        w, h = 220, 300; im = Image.new('RGBA', (w, h), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
+        if grid:
+            for q in range(4):
+                cx, cy = 16 + (q % 2) * 98, 16 + (q // 2) * 140
+                d.rounded_rectangle((cx, cy, cx + 90, cy + 124), radius=14, fill=(30, 64, 140, 255), outline=(150, 190, 250, 255), width=2); d.rounded_rectangle((cx + 12, cy + 12, cx + 78, cy + 64), radius=10, fill=(235, 244, 255, 255)); d.rectangle((cx + 14, cy + 82, cx + 76, cy + 92), fill=(210, 228, 255, 255))
+        else:
+            for q in range(5):
+                cy = 14 + q * 56; d.rounded_rectangle((12, cy, 208, cy + 48), radius=10, fill=(30, 64, 140, 255), outline=(150, 190, 250, 255), width=2); d.rounded_rectangle((20, cy + 8, 52, cy + 40), radius=7, fill=(235, 244, 255, 255)); d.rectangle((64, cy + 18, 190, cy + 28), fill=(210, 228, 255, 255))
+        im.save(os.path.join(OUT, name + '@2x.png')); im.resize((w // 2, h // 2), Image.LANCZOS).save(os.path.join(OUT, name + '.png'))
+    mini('setup_list', False); mini('setup_grid', True)
+
+
 def icons_and_launch(icon):
     for name, sz in (('Icon.png', 57), ('Icon@2x.png', 114), ('Icon-Small.png', 29), ('Icon-Small@2x.png', 58)):
         icon.resize((sz, sz), Image.LANCZOS).save(os.path.join(OUT, name))
@@ -287,6 +324,6 @@ if __name__ == '__main__':
     strip('header_bar', (54, 82, 138), (28, 46, 94), (118, 150, 210), (6, 10, 24))
     stretch_row('cell_bg', (24, 40, 92), (16, 30, 76), (86, 120, 190), (6, 12, 34), alpha=0.58)
     stretch_row('cell_sel', (66, 134, 236), (30, 84, 190), (160, 204, 255), (12, 38, 98), alpha=0.92)
-    buttons(); tile_card(); icons_bar()
+    buttons(); tile_card(); icons_bar(); setup_assets()
     icons_and_launch(icon_1024())
     print('gotowe:', sorted(os.listdir(OUT)))
