@@ -1,0 +1,22 @@
+CZYTNIK M3U 1.0.0 - aplikacja na iOS 6 (jailbreak)
+
+CO TO ROBI
+- Dodajesz adres playlisty (.m3u / .m3u8) albo wrzucasz plik przez iTunes.
+- Widzisz kanały podzielone na grupy, z wyszukiwarką (działa bez polskich znaków).
+- Dotknięcie kanału = odtwarzanie. Strzałka obok kanału = ulubione / kopiuj adres.
+- Ostatnio pobrana lista jest zapamiętana, więc otwiera się też bez internetu.
+- Jeśli podasz adres pojedynczego strumienia HLS (a nie listy kanałów), aplikacja odtworzy go wprost.
+
+OGRANICZENIA iOS 6 (to nie błąd aplikacji)
+- Odtwarza tylko HLS (adresy .m3u8) z obrazem H.264 przez http/https.
+  Kanały rtmp://, rtsp://, udp:// oraz H.265 nie zadziałają.
+- Odtwarzacz iOS 6 nie pozwala ustawić własnego User-Agenta ani nagłówków.
+- Starsze iOS może nie łączyć się z serwerami, które mają nowe certyfikaty https
+  (wtedy spróbuj adresu http://, jeśli dostawca go udostępnia).
+
+JAK ZBUDOWAĆ (tak samo jak Rozkład)
+1. Utwórz na GitHubie nowe, puste repozytorium (np. czytnik-m3u).
+2. Wgraj do niego CAŁĄ zawartość tego folderu, razem z ukrytym folderem .github
+   (na Macu: Cmd+Shift+. pokazuje ukryte pliki).
+3. Zakładka Actions -> "Zbuduj aplikację" -> Run workflow.
+4. Po kilku minutach pobierz .deb (Cydia/dpkg) albo .ipa z wydania "najnowsza" (Releases).

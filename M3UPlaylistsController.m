@@ -1,0 +1,146 @@
+#import "M3UPlaylistsController.h"
+#import "M3UChannelsController.h"
+#import "M3UAddController.h"
+#import "M3UStore.h"
+
+@interface M3UPlaylistsController () <M3UAddDelegate>
+@property (nonatomic, strong) NSArray *playlists;
+@property (nonatomic, strong) NSArray *files;
+@end
+
+@implementation M3UPlaylistsController
+
+- (id)init
+{
+    self = [super initWithStyle:UITableViewStyleGrouped];
+    if (self) self.title = @"Czytnik M3U";
+    return self;
+}
+
+- (void)viewDidLoad
+{
+    [super viewDidLoad];
+    self.navigationItem.leftBarButtonItem = self.editButtonItem;
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd
+                                                                                           target:self action:@selector(addTapped)];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(reload) name:@"M3UPlaylistsChanged" object:nil];
+}
+
+- (void)viewWillAppear:(BOOL)animated
+{
+    [super viewWillAppear:animated];
+    [self reload];
+}
+
+- (void)reload
+{
+    self.playlists = M3UPlaylists();
+    self.files = M3ULocalFiles();
+    [self.tableView reloadData];
+}
+
+- (void)addTapped
+{
+    M3UAddController *add = [[M3UAddController alloc] init];
+    add.delegate = self;
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:add];
+    nav.navigationBar.barStyle = UIBarStyleBlack;
+    [self presentViewController:nav animated:YES completion:nil];
+}
+
+- (void)addController:(M3UAddController *)c didAddName:(NSString *)name url:(NSString *)url
+{
+    NSMutableArray *list = [self.playlists mutableCopy];
+    [list addObject:[NSDictionary dictionaryWithObjectsAndKeys:name, @"name", url, @"url", nil]];
+    M3USavePlaylists(list);
+    [self dismissViewControllerAnimated:YES completion:nil];
+    [self reload];
+}
+
+- (void)addControllerDidCancel:(M3UAddController *)c
+{
+    [self dismissViewControllerAnimated:YES completion:nil];
+}
+
+#pragma mark - Tabela (sekcje: 0 ulubione, 1 playlisty, 2 pliki)
+
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv
+{
+    return [self.files count] ? 3 : 2;
+}
+
+- (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s
+{
+    if (s == 0) return 1;
+    if (s == 1) return (NSInteger)[self.playlists count];
+    return (NSInteger)[self.files count];
+}
+
+- (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)s
+{
+    if (s == 1) return @"Playlisty";
+    if (s == 2) return @"Pliki w aplikacji";
+    return nil;
+}
+
+- (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)s
+{
+    if (s == 1 && ![self.playlists count])
+        return @"Dotknij +, żeby dodać adres playlisty (.m3u lub .m3u8).";
+    if (s == (NSInteger)([self.files count] ? 2 : 1))
+        return @"Pliki .m3u wrzucisz przez iTunes (karta Aplikacje → Udostępnianie plików) albo „Otwórz w…” z Safari.";
+    return nil;
+}
+
+- (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip
+{
+    static NSString *ident = @"c";
+    UITableViewCell *cell = [tv dequeueReusableCellWithIdentifier:ident];
+    if (!cell) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:ident];
+    cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    if (ip.section == 0) {
+        cell.textLabel.text = @"★ Ulubione";
+        cell.detailTextLabel.text = [NSString stringWithFormat:@"Kanałów: %lu", (unsigned long)[M3UFavorites() count]];
+    } else if (ip.section == 1) {
+        NSDictionary *d = [self.playlists objectAtIndex:(NSUInteger)ip.row];
+        cell.textLabel.text = [d objectForKey:@"name"];
+        cell.detailTextLabel.text = [d objectForKey:@"url"];
+    } else {
+        NSString *f = [self.files objectAtIndex:(NSUInteger)ip.row];
+        cell.textLabel.text = f;
+        cell.detailTextLabel.text = @"plik w aplikacji";
+    }
+    return cell;
+}
+
+- (BOOL)tableView:(UITableView *)tv canEditRowAtIndexPath:(NSIndexPath *)ip
+{
+    return ip.section == 1;
+}
+
+- (void)tableView:(UITableView *)tv commitEditingStyle:(UITableViewCellEditingStyle)style forRowAtIndexPath:(NSIndexPath *)ip
+{
+    if (style != UITableViewCellEditingStyleDelete || ip.section != 1) return;
+    NSMutableArray *list = [self.playlists mutableCopy];
+    [list removeObjectAtIndex:(NSUInteger)ip.row];
+    M3USavePlaylists(list);
+    self.playlists = list;
+    [tv reloadSections:[NSIndexSet indexSetWithIndex:1] withRowAnimation:UITableViewRowAnimationFade];
+}
+
+- (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip
+{
+    [tv deselectRowAtIndexPath:ip animated:YES];
+    M3UChannelsController *c;
+    if (ip.section == 0) {
+        c = [[M3UChannelsController alloc] initWithFavorites];
+    } else if (ip.section == 1) {
+        c = [[M3UChannelsController alloc] initWithPlaylist:[self.playlists objectAtIndex:(NSUInteger)ip.row]];
+    } else {
+        NSString *f = [self.files objectAtIndex:(NSUInteger)ip.row];
+        c = [[M3UChannelsController alloc] initWithPlaylist:[NSDictionary dictionaryWithObjectsAndKeys:f, @"name", f, @"file", nil]];
+    }
+    [self.navigationController pushViewController:c animated:YES];
+}
+
+@end
