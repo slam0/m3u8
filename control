@@ -1,7 +1,7 @@
 Package: com.nazar0vsky.m3uczytnik
 Name: Czytnik M3U
 Depends: firmware (>= 6.0)
-Version: 1.0.0
+Version: 1.1.0
 Architecture: iphoneos-arm
 Description: Czytnik playlist M3U/M3U8 (IPTV): lista kanalow, szukanie, ulubione, odtwarzanie HLS
 Maintainer: nazar0vsky-slam0

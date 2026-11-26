@@ -1,4 +1,5 @@
 #import "M3UAddController.h"
+#import "M3UTheme.h"
 
 @interface M3UAddController () <UITextFieldDelegate>
 @property (nonatomic, strong) UITextField *nameField;
@@ -30,6 +31,7 @@
 - (void)viewDidLoad
 {
     [super viewDidLoad];
+    M3UStyleTable(self.tableView);
     self.nameField = [self makeField:@"np. Telewizja"];
     self.nameField.autocapitalizationType = UITextAutocapitalizationTypeSentences;
     self.nameField.returnKeyType = UIReturnKeyNext;
@@ -75,14 +77,25 @@
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s { return s == 0 ? 2 : 1; }
 
-- (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)s
+- (UIView *)tableView:(UITableView *)tv viewForFooterInSection:(NSInteger)s
 {
-    return s == 0 ? @"Adres playlisty skopiujesz np. z panelu swojego dostawcy IPTV." : nil;
+    return s == 0 ? M3UFooterView(@"Adres playlisty skopiujesz np. z panelu swojego dostawcy IPTV.", tv.bounds.size.width) : nil;
+}
+
+- (CGFloat)tableView:(UITableView *)tv heightForFooterInSection:(NSInteger)s
+{
+    return s == 0 ? M3UFooterHeight(@"Adres playlisty skopiujesz np. z panelu swojego dostawcy IPTV.", tv.bounds.size.width) : 8.0f;
+}
+
+- (void)tableView:(UITableView *)tv willDisplayCell:(UITableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)ip
+{
+    M3UPaperCell(cell);
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip
 {
     UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:nil];
+    M3UStyleCell(cell);
     if (ip.section == 1) {
         cell.textLabel.text = @"Wklej adres ze schowka";
         cell.textLabel.textAlignment = NSTextAlignmentCenter;
@@ -92,6 +105,7 @@
     UITextField *f = ip.row == 0 ? self.nameField : self.urlField;
     cell.textLabel.text = ip.row == 0 ? @"Nazwa" : @"Adres";
     cell.textLabel.font = [UIFont boldSystemFontOfSize:15];
+    f.textColor = M3UBrown();
     CGRect fr = f.frame;
     fr.size.width = tv.bounds.size.width - 110 - 40;
     f.frame = fr;

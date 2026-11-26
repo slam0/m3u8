@@ -1,8 +1,10 @@
-CZYTNIK M3U 1.0.0 - aplikacja na iOS 6 (jailbreak)
+CZYTNIK M3U 1.1.0 - aplikacja na iOS 6 (jailbreak)
 
 CO TO ROBI
 - Dodajesz adres playlisty (.m3u / .m3u8) albo wrzucasz plik przez iTunes.
 - Widzisz kanały podzielone na grupy, z wyszukiwarką (działa bez polskich znaków).
+- Przy kanałach widać ikonki (logo z listy, pobierane w tle i zapamiętywane na telefonie).
+- Wygląd w stylu iOS 6: skórzany pasek, lniane tło, papierowe wiersze.
 - Dotknięcie kanału = odtwarzanie. Strzałka obok kanału = ulubione / kopiuj adres.
 - Ostatnio pobrana lista jest zapamiętana, więc otwiera się też bez internetu.
 - Jeśli podasz adres pojedynczego strumienia HLS (a nie listy kanałów), aplikacja odtworzy go wprost.

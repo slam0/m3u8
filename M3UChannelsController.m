@@ -1,6 +1,8 @@
 #import "M3UChannelsController.h"
 #import "M3UList.h"
 #import "M3UStore.h"
+#import "M3ULogos.h"
+#import "M3UTheme.h"
 #import <MediaPlayer/MediaPlayer.h>
 
 @interface M3UChannelsController () <UISearchBarDelegate, UIActionSheetDelegate>
@@ -55,8 +57,11 @@
     self.search.placeholder = @"Szukaj kanału";
     self.search.autocorrectionType = UITextAutocorrectionTypeNo;
     self.search.autocapitalizationType = UITextAutocapitalizationTypeNone;
-    self.search.barStyle = UIBarStyleBlack;
+    M3UStyleSearchBar(self.search);
     self.tableView.tableHeaderView = self.search;
+    M3UStyleTable(self.tableView);
+    self.tableView.rowHeight = 58.0f;
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(logoLoaded) name:M3ULogoDidLoad object:nil];
     if (!self.favoritesMode) {
         self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh
                                                                                                target:self action:@selector(refreshTapped)];
@@ -102,7 +107,7 @@
         e.name = [d objectForKey:@"name"];
         e.url = [d objectForKey:@"url"];
         e.group = [d objectForKey:@"group"] ?: @"";
-        e.logo = @"";
+        e.logo = [d objectForKey:@"logo"] ?: @"";
         [list addObject:e];
     }
     self.entries = list;
@@ -208,6 +213,47 @@
     return [[self.groupRows objectAtIndex:(NSUInteger)ip.section] objectAtIndex:(NSUInteger)ip.row];
 }
 
+#pragma mark - Ikonki kanałów
+
+- (UIImage *)tileFor:(M3UEntry *)e
+{
+    if (![e.logo length]) return M3UPlaceholderTile();
+    UIImage *tile = M3UCachedLogoTile(e.logo);
+    if (tile) return tile;
+    if (!M3ULogoFailed(e.logo)) {
+        NSString *url = e.logo;
+        __weak M3UChannelsController *weakSelf = self;
+        M3URequestLogo(url, ^BOOL{
+            M3UChannelsController *me = weakSelf;
+            if (!me || !me.isViewLoaded || !me.view.window) return NO;
+            for (NSIndexPath *ip in [me.tableView indexPathsForVisibleRows]) {
+                if ([[me entryAt:ip].logo isEqualToString:url]) return YES;
+            }
+            return NO;
+        });
+    }
+    return M3UPlaceholderTile();
+}
+
+/* Gdy któreś logo się pobierze, podmieniamy ikonki w widocznych wierszach (bez przeładowania listy). */
+- (void)logoLoaded
+{
+    [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(refreshVisibleLogos) object:nil];
+    [self performSelector:@selector(refreshVisibleLogos) withObject:nil afterDelay:0.1];
+}
+
+- (void)refreshVisibleLogos
+{
+    if (!self.isViewLoaded) return;
+    for (NSIndexPath *ip in [self.tableView indexPathsForVisibleRows]) {
+        UITableViewCell *cell = [self.tableView cellForRowAtIndexPath:ip];
+        if (!cell) continue;
+        M3UEntry *e = [self entryAt:ip];
+        UIImage *tile = [e.logo length] ? M3UCachedLogoTile(e.logo) : nil;
+        if (tile && cell.imageView.image != tile) cell.imageView.image = tile;
+    }
+}
+
 #pragma mark - Szukanie
 
 - (void)searchBar:(UISearchBar *)bar textDidChange:(NSString *)text
@@ -234,7 +280,7 @@
     return (NSInteger)[[self.groupRows objectAtIndex:(NSUInteger)s] count];
 }
 
-- (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)s
+- (NSString *)headerText:(NSInteger)s
 {
     if (self.found) return nil;
     NSString *g = [self.groupNames objectAtIndex:(NSUInteger)s];
@@ -243,20 +289,25 @@
     return [g length] ? g : @"Bez grupy";
 }
 
+- (UIView *)tableView:(UITableView *)tv viewForHeaderInSection:(NSInteger)s
+{
+    NSString *t = [self headerText:s];
+    return t ? M3UHeaderView(t) : nil;
+}
+
+- (CGFloat)tableView:(UITableView *)tv heightForHeaderInSection:(NSInteger)s
+{
+    return [self headerText:s] ? 22.0f : 0.0f;
+}
+
+- (void)tableView:(UITableView *)tv willDisplayCell:(UITableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)ip
+{
+    M3UPaperCell(cell);
+}
+
 - (UIView *)messageView
 {
-    UILabel *l = [[UILabel alloc] initWithFrame:CGRectMake(20, 10, 280, 70)];
-    l.text = self.message;
-    l.numberOfLines = 0;
-    l.textAlignment = NSTextAlignmentCenter;
-    l.textColor = [UIColor grayColor];
-    l.backgroundColor = [UIColor clearColor];
-    l.font = [UIFont systemFontOfSize:15];
-    UIView *v = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 320, 90)];
-    l.autoresizingMask = UIViewAutoresizingFlexibleWidth;
-    v.autoresizingMask = UIViewAutoresizingFlexibleWidth;
-    [v addSubview:l];
-    return v;
+    return M3UFooterView(self.message, self.tableView.bounds.size.width);
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip
@@ -265,6 +316,8 @@
     UITableViewCell *cell = [tv dequeueReusableCellWithIdentifier:ident];
     if (!cell) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:ident];
     M3UEntry *e = [self entryAt:ip];
+    M3UStyleCell(cell);
+    cell.imageView.image = [self tileFor:e];
     BOOL fav = M3UIsFavorite(e.url);
     cell.textLabel.text = fav ? [@"★ " stringByAppendingString:e.name] : e.name;
     cell.detailTextLabel.text = (self.found || self.favoritesMode) && [e.group length] ? e.group : nil;
@@ -295,7 +348,7 @@
     M3UEntry *e = self.actionEntry;
     if (!e || i == sheet.cancelButtonIndex) return;
     if (i == 0) {
-        M3UToggleFavorite(e.name, e.url, e.group);
+        M3UToggleFavorite(e.name, e.url, e.group, e.logo);
         if (self.favoritesMode) [self loadFavorites]; else [self.tableView reloadData];
     } else if (i == 1) {
         [UIPasteboard generalPasteboard].string = e.url;

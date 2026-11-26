@@ -4,10 +4,10 @@
 NSArray *M3UPlaylists(void);
 void M3USavePlaylists(NSArray *list);
 
-/* Ulubione kanały: słowniki @{@"name", @"url", @"group"}. */
+/* Ulubione kanały: słowniki @{@"name", @"url", @"group", @"logo"}. */
 NSArray *M3UFavorites(void);
 BOOL M3UIsFavorite(NSString *url);
-void M3UToggleFavorite(NSString *name, NSString *url, NSString *group);
+void M3UToggleFavorite(NSString *name, NSString *url, NSString *group, NSString *logo);
 
 /* Ostatnio pobrany tekst listy (żeby lista kanałów otwierała się bez internetu). */
 NSString *M3UCachedText(NSString *key);

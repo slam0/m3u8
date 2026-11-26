@@ -2,6 +2,7 @@
 #import "M3UChannelsController.h"
 #import "M3UAddController.h"
 #import "M3UStore.h"
+#import "M3UTheme.h"
 
 @interface M3UPlaylistsController () <M3UAddDelegate>
 @property (nonatomic, strong) NSArray *playlists;
@@ -20,6 +21,8 @@
 - (void)viewDidLoad
 {
     [super viewDidLoad];
+    M3UStyleTable(self.tableView);
+    self.tableView.rowHeight = 56.0f;
     self.navigationItem.leftBarButtonItem = self.editButtonItem;
     self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd
                                                                                            target:self action:@selector(addTapped)];
@@ -44,7 +47,6 @@
     M3UAddController *add = [[M3UAddController alloc] init];
     add.delegate = self;
     UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:add];
-    nav.navigationBar.barStyle = UIBarStyleBlack;
     [self presentViewController:nav animated:YES completion:nil];
 }
 
@@ -76,14 +78,14 @@
     return (NSInteger)[self.files count];
 }
 
-- (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)s
+- (NSString *)headerText:(NSInteger)s
 {
     if (s == 1) return @"Playlisty";
     if (s == 2) return @"Pliki w aplikacji";
     return nil;
 }
 
-- (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)s
+- (NSString *)footerText:(NSInteger)s
 {
     if (s == 1 && ![self.playlists count])
         return @"Dotknij +, żeby dodać adres playlisty (.m3u lub .m3u8).";
@@ -92,12 +94,41 @@
     return nil;
 }
 
+- (UIView *)tableView:(UITableView *)tv viewForHeaderInSection:(NSInteger)s
+{
+    NSString *t = [self headerText:s];
+    return t ? M3UHeaderView(t) : nil;
+}
+
+- (CGFloat)tableView:(UITableView *)tv heightForHeaderInSection:(NSInteger)s
+{
+    return [self headerText:s] ? 22.0f : 12.0f;
+}
+
+- (UIView *)tableView:(UITableView *)tv viewForFooterInSection:(NSInteger)s
+{
+    NSString *t = [self footerText:s];
+    return t ? M3UFooterView(t, tv.bounds.size.width) : nil;
+}
+
+- (CGFloat)tableView:(UITableView *)tv heightForFooterInSection:(NSInteger)s
+{
+    NSString *t = [self footerText:s];
+    return t ? M3UFooterHeight(t, tv.bounds.size.width) : 8.0f;
+}
+
+- (void)tableView:(UITableView *)tv willDisplayCell:(UITableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)ip
+{
+    M3UPaperCell(cell);
+}
+
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip
 {
     static NSString *ident = @"c";
     UITableViewCell *cell = [tv dequeueReusableCellWithIdentifier:ident];
     if (!cell) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:ident];
     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    M3UStyleCell(cell);
     if (ip.section == 0) {
         cell.textLabel.text = @"★ Ulubione";
         cell.detailTextLabel.text = [NSString stringWithFormat:@"Kanałów: %lu", (unsigned long)[M3UFavorites() count]];

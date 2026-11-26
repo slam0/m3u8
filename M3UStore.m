@@ -28,7 +28,7 @@ BOOL M3UIsFavorite(NSString *url)
     return NO;
 }
 
-void M3UToggleFavorite(NSString *name, NSString *url, NSString *group)
+void M3UToggleFavorite(NSString *name, NSString *url, NSString *group, NSString *logo)
 {
     NSMutableArray *list = [M3UFavorites() mutableCopy];
     for (NSUInteger i = 0; i < [list count]; i++) {
@@ -37,7 +37,7 @@ void M3UToggleFavorite(NSString *name, NSString *url, NSString *group)
             goto save;
         }
     }
-    [list addObject:[NSDictionary dictionaryWithObjectsAndKeys:name ?: @"", @"name", url, @"url", group ?: @"", @"group", nil]];
+    [list addObject:[NSDictionary dictionaryWithObjectsAndKeys:name ?: @"", @"name", url, @"url", group ?: @"", @"group", logo ?: @"", @"logo", nil]];
 save:
     [[NSUserDefaults standardUserDefaults] setObject:list forKey:kFavorites];
     [[NSUserDefaults standardUserDefaults] synchronize];

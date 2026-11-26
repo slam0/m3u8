@@ -1,14 +1,16 @@
 #import "AppDelegate.h"
 #import "M3UPlaylistsController.h"
 #import "M3UStore.h"
+#import "M3UTheme.h"
 
 @implementation AppDelegate
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
+    M3UThemeApply();
+    [application setStatusBarStyle:UIStatusBarStyleBlackOpaque];
     self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
     UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:[[M3UPlaylistsController alloc] init]];
-    nav.navigationBar.barStyle = UIBarStyleBlack;
     self.window.rootViewController = nav;
     [self.window makeKeyAndVisible];
     return YES;
