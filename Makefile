@@ -15,9 +15,9 @@ include $(THEOS)/makefiles/common.mk
 
 APPLICATION_NAME = CzytnikM3U
 
-CzytnikM3U_FILES = main.m AppDelegate.m M3UList.m M3UStore.m M3UPlaylistsController.m M3UAddController.m M3UChannelsController.m m3u.c
+CzytnikM3U_FILES = main.m AppDelegate.m M3UList.m M3UStore.m M3UPlaylistsController.m M3UAddController.m M3UChannelsController.m m3u.c m3u_libc.c
 CzytnikM3U_FRAMEWORKS = UIKit Foundation CoreGraphics QuartzCore MediaPlayer
-CzytnikM3U_CFLAGS = -fobjc-arc -Wno-deprecated-declarations -Wno-unused-command-line-argument
+CzytnikM3U_CFLAGS = -fobjc-arc -D_FORTIFY_SOURCE=0 -Wno-deprecated-declarations -Wno-unused-command-line-argument
 
 include $(THEOS_MAKE_PATH)/application.mk
 
