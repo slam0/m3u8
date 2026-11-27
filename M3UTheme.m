@@ -10,7 +10,7 @@ NSInteger M3UThemeIndex(void)
 {
     if (sTheme < 0) {
         id stored = [[NSUserDefaults standardUserDefaults] objectForKey:kThemeKey];
-        NSInteger t = stored ? [stored integerValue] : 5;           /* domyślnie motyw iSat */
+        NSInteger t = stored ? [stored integerValue] : 5;           /* domyślnie motyw nSat */
         sTheme = (t >= 0 && t < 6) ? t : 5;
     }
     return sTheme;
@@ -26,11 +26,11 @@ void M3USetTheme(NSInteger index)
 
 NSString *M3UThemeName(NSInteger i)
 {
-    static NSString *const n[6] = { @"Niebieski", @"Srebrny", @"Klasyczny", @"Ciemny", @"Granatowy gradient", @"iSat" };
+    static NSString *const n[6] = { @"Niebieski", @"Srebrny", @"Klasyczny", @"Ciemny", @"Granatowy gradient", @"nSat" };
     return (i >= 0 && i < 6) ? n[i] : @"";
 }
 
-/* Motyw iSat (5) ma paletę i grafiki Granatowego (4); inne jest tylko tło. */
+/* Motyw nSat (5) ma paletę i grafiki Granatowego (4); inne jest tylko tło. */
 static NSInteger variant(void) { NSInteger t = M3UThemeIndex(); return t == 5 ? 4 : t; }
 
 static BOOL themeLight(void) { NSInteger t = M3UThemeIndex(); return t == 1 || t == 2; }
@@ -212,7 +212,7 @@ static UIImage *gradientImage(CGFloat h, const CGFloat *t, const CGFloat *b, BOO
     return [i resizableImageWithCapInsets:UIEdgeInsetsMake(0, 1, 0, 1)];
 }
 
-/* Tło motywu iSat: gradient granatowy, jasna poświata za środkiem i ukośne pasy zanikające ku górze. */
+/* Tło motywu nSat: gradient granatowy, jasna poświata za środkiem i ukośne pasy zanikające ku górze. */
 static UIImage *isatImage(CGSize sz)
 {
     UIGraphicsBeginImageContextWithOptions(sz, YES, [[UIScreen mainScreen] scale]);
@@ -309,7 +309,7 @@ static UIImage *brushedTile(void)
     [super layoutSubviews];
     CGFloat bw = self.bounds.size.width, bh = self.bounds.size.height;
     NSInteger t = self.forceBlue ? 0 : M3UThemeIndex();
-    if (t == 5) {                                               /* iSat: granat, poświata i ukośne pasy u dołu */
+    if (t == 5) {                                               /* nSat: granat, poświata i ukośne pasy u dołu */
         _tex.hidden = YES;
         _pic.hidden = NO;
         _pic.frame = CGRectMake(0, 0, bw, bh);

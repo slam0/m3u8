@@ -20,7 +20,7 @@ M3U_ROTATE_ANY
 - (id)init
 {
     self = [super initWithStyle:UITableViewStylePlain];
-    if (self) self.title = @"iSat";
+    if (self) self.title = @"nSat";
     return self;
 }
 

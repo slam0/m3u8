@@ -134,7 +134,7 @@ M3U_ROTATE_ANY
         name.textColor = M3UTextColor();
         name.shadowColor = M3UShadowColor();
         name.shadowOffset = M3UShadowOffset();
-        name.text = @"iSat";
+        name.text = @"nSat";
         [self.panel addSubview:name];
         UIView *line = [[UIView alloc] initWithFrame:CGRectMake(14, 110, kRailW - 29.0f, 1)];
         line.backgroundColor = M3UPanelEdgeColor();

@@ -10,7 +10,7 @@ static NSString *const kLayoutKey = @"layout_grid";
 @interface M3USettingsController () <UIAlertViewDelegate>
 @end
 
-/* Kolejność motywów na liście: iSat (5) pierwszy, potem pozostałe. */
+/* Kolejność motywów na liście: nSat (5) pierwszy, potem pozostałe. */
 static NSInteger themeAtRow(NSInteger row) { static const NSInteger o[6] = { 5, 0, 1, 2, 3, 4 }; return (row >= 0 && row < 6) ? o[row] : 5; }
 
 @implementation M3USettingsController
@@ -102,7 +102,7 @@ M3U_ROTATE_ANY
             c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
         }
     } else if (ip.row == 0) {
-        c.textLabel.text = @"iSat";
+        c.textLabel.text = @"nSat";
         NSString *v = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleShortVersionString"] ?: @"";
         c.detailTextLabel.text = [NSString stringWithFormat:@"%@ %@", L(@"Wersja"), v];
         c.selectionStyle = UITableViewCellSelectionStyleNone;

@@ -168,7 +168,7 @@ static UIImageView *glassPanel(CGRect frame)
     icon.frame = CGRectMake((W - 110) / 2.0f, 40 + e * 0.6f, 110, 110);
     [p addSubview:icon];
     CGFloat y = 168 + e;
-    [p addSubview:makeLabel(L(@"Witaj w iSat"), CGRectMake(0, y, W, 36), 28, YES, softWhite(), NSTextAlignmentCenter)];
+    [p addSubview:makeLabel(L(@"Witaj w nSat"), CGRectMake(0, y, W, 36), 28, YES, softWhite(), NSTextAlignmentCenter)];
     [p addSubview:makeLabel(L(@"Czytnik playlist M3U i M3U8"), CGRectMake(0, y + 40, W, 22), 16, NO, softBlue(), NSTextAlignmentCenter)];
     [p addSubview:makeLabel(L(@"kanały z ikonami, ulubione, odtwarzanie"), CGRectMake(0, y + 64, W, 20), 13, NO, softBlue(), NSTextAlignmentCenter)];
     UIImageView *panel = glassPanel(CGRectMake(24, y + 100, W - 48, 62));
@@ -213,7 +213,7 @@ static UIImageView *glassPanel(CGRect frame)
     icon.frame = CGRectMake((W - 60) / 2.0f, 36 + e * 0.2f, 60, 60);
     [p addSubview:icon];
     CGFloat y0 = 104 + e * 0.2f;
-    [p addSubview:makeLabel(L(@"Konfiguracja iSat"), CGRectMake(0, y0, W, 30), 22, YES, softWhite(), NSTextAlignmentCenter)];
+    [p addSubview:makeLabel(L(@"Konfiguracja nSat"), CGRectMake(0, y0, W, 30), 22, YES, softWhite(), NSTextAlignmentCenter)];
     [p addSubview:makeLabel(L(@"Dodaj swoją pierwszą playlistę"), CGRectMake(0, y0 + 32, W, 18), 13, NO, softBlue(), NSTextAlignmentCenter)];
     CGFloat py = y0 + 60;
     [p addSubview:glassPanel(CGRectMake(14, py, W - 28, 186))];

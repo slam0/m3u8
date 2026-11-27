@@ -221,9 +221,9 @@ static const char *const kRows[][3] = {
     { "Kafelki",
       "Tiles",
       "Плитки" },
-    { "Konfiguracja iSat",
-      "iSat setup",
-      "Настройка iSat" },
+    { "Konfiguracja nSat",
+      "nSat setup",
+      "Настройка nSat" },
     { "Lista",
       "List",
       "Список" },
@@ -245,9 +245,9 @@ static const char *const kRows[][3] = {
     { "W schowku nie ma adresu http:// ani https://. Skopiuj link do playlisty i spróbuj jeszcze raz.",
       "There is no http:// or https:// address on the clipboard. Copy the playlist link and try again.",
       "В буфере обмена нет адреса http:// или https://. Скопируйте ссылку на плейлист и попробуйте ещё раз." },
-    { "Witaj w iSat",
-      "Welcome to iSat",
-      "Добро пожаловать в iSat" },
+    { "Witaj w nSat",
+      "Welcome to nSat",
+      "Добро пожаловать в nSat" },
     { "Wybierz wygląd",
       "Choose a look",
       "Выберите вид" },
@@ -470,9 +470,9 @@ static const char *const kRows[][3] = {
     { "Nie udało się odtworzyć kanału. Przesuń palcem w górę lub w dół, aby wybrać inny.",
       "Couldn't play the channel. Swipe up or down to pick another one.",
       "Не удалось воспроизвести канал. Проведите вверх или вниз, чтобы выбрать другой." },
-    { "iSat",
-      "iSat",
-      "iSat" }
+    { "nSat",
+      "nSat",
+      "nSat" }
 };
 
 static NSDictionary *table(int col)
