@@ -105,7 +105,7 @@ static UIImageView *glassPanel(CGRect frame)
     self.gridSelected = YES;                                   /* kafelki wybrane na start, jak na makiecie */
     CGRect b = self.view.bounds;
     CGFloat W = b.size.width, H = b.size.height;
-    [self.view addSubview:M3UBackdropView(b)];
+    [self.view addSubview:M3UBackdropViewBlue(b)];
 
     self.pager = [[UIScrollView alloc] initWithFrame:b];
     self.pager.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;

@@ -13,7 +13,7 @@
     self = [super initWithFrame:frame];
     if (!self) return nil;
     self.backgroundColor = [UIColor clearColor];
-    _card = [[UIImageView alloc] initWithImage:[[UIImage imageNamed:@"tile_card"] resizableImageWithCapInsets:UIEdgeInsetsMake(14, 14, 14, 14)]];
+    _card = [[UIImageView alloc] initWithImage:[M3UImg(@"tile_card") resizableImageWithCapInsets:UIEdgeInsetsMake(14, 14, 14, 14)]];
     _card.frame = self.contentView.bounds;
     _card.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [self.contentView addSubview:_card];
@@ -28,8 +28,8 @@
     _title.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     _title.backgroundColor = [UIColor clearColor];
     _title.textColor = M3UTextColor();
-    _title.shadowColor = [UIColor colorWithWhite:0 alpha:0.85f];
-    _title.shadowOffset = CGSizeMake(0, -1);
+    _title.shadowColor = M3UShadowColor();
+    _title.shadowOffset = M3UShadowOffset();
     _title.font = [UIFont boldSystemFontOfSize:14.0f];
     _title.textAlignment = NSTextAlignmentCenter;
     _title.numberOfLines = 2;
@@ -70,7 +70,7 @@
 {
     self = [super initWithFrame:frame];
     if (!self) return nil;
-    UIImageView *bg = [[UIImageView alloc] initWithImage:[[UIImage imageNamed:@"header_bar"] resizableImageWithCapInsets:UIEdgeInsetsMake(8, 4, 8, 4)]];
+    UIImageView *bg = [[UIImageView alloc] initWithImage:[M3UImg(@"header_bar") resizableImageWithCapInsets:UIEdgeInsetsMake(8, 4, 8, 4)]];
     bg.frame = self.bounds;
     bg.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [self addSubview:bg];
@@ -78,8 +78,8 @@
     _label.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     _label.backgroundColor = [UIColor clearColor];
     _label.textColor = M3UTextColor();
-    _label.shadowColor = [UIColor colorWithWhite:0 alpha:0.85f];
-    _label.shadowOffset = CGSizeMake(0, -1);
+    _label.shadowColor = M3UShadowColor();
+    _label.shadowOffset = M3UShadowOffset();
     _label.font = [UIFont boldSystemFontOfSize:13.0f];
     [self addSubview:_label];
     return self;

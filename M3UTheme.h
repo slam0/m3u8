@@ -2,6 +2,21 @@
 
 /* Granatowo-niebieski wygląd w stylu iOS 6: gładkie niebieskie tło z błyskiem, błyszczące paski i guziki. */
 
+/* Motywy: 0 Niebieski (domyślny), 1 Srebrny, 2 Klasyczny, 3 Ciemny, 4 Granatowy gradient */
+extern NSString *const M3UThemeDidChange;
+NSInteger M3UThemeCount(void);
+NSInteger M3UThemeIndex(void);
+void M3USetTheme(NSInteger index);                 /* zapisuje wybór i wysyła M3UThemeDidChange */
+NSString *M3UThemeName(NSInteger index);
+UIImage *M3UImg(NSString *name);                   /* grafika w wersji bieżącego motywu */
+UIColor *M3UShadowColor(void);                     /* cień napisów (jasny motyw: biały pod spodem) */
+CGSize M3UShadowOffset(void);
+UIColor *M3UPanelColor(CGFloat alpha);             /* tło paska bocznego/dolnego */
+UIColor *M3UPanelEdgeColor(void);
+UIImage *M3USelectionImage(BOOL tab);              /* zaznaczenie pozycji paska */
+UIView *M3UBackdropViewBlue(CGRect frame);         /* zawsze niebieskie tło (ekran startowy) */
+void M3UPlayerPalette(int slot, CGFloat *top, CGFloat *bot);  /* kolory odtwarzacza: 0 nagłówek, 1 akcent, 2 zaznaczenie */
+UIColor *M3UThemeTint(void);                        /* kolor suwaków i przełączników */
 void M3UThemeApply(void);                          /* pasek i guziki (UIAppearance) - wołać przed tworzeniem okien */
 UIColor *M3UTextColor(void);                       /* główny tekst (jasny) */
 UIColor *M3USubtleColor(void);                     /* tekst pomocniczy */

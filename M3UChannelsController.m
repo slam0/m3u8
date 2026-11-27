@@ -142,8 +142,8 @@ M3U_ROTATE_ANY
     self.messageLabel.numberOfLines = 0;
     self.messageLabel.textAlignment = NSTextAlignmentCenter;
     self.messageLabel.textColor = M3USubtleColor();
-    self.messageLabel.shadowColor = [UIColor colorWithWhite:0 alpha:0.85f];
-    self.messageLabel.shadowOffset = CGSizeMake(0, -1);
+    self.messageLabel.shadowColor = M3UShadowColor();
+    self.messageLabel.shadowOffset = M3UShadowOffset();
     self.messageLabel.font = [UIFont systemFontOfSize:15.0f];
     self.messageLabel.hidden = YES;
     [self.view addSubview:self.messageLabel];
@@ -720,7 +720,7 @@ M3U_ROTATE_ANY
         [self showError:[NSString stringWithFormat:L(@"iOS 6 odtworzy tylko strumienie HLS przez http lub https. Ten kanał używa „%@”."), scheme ?: @"?"]];
         return;
     }
-    if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {          /* iPad: własny odtwarzacz z panelami (lista kanałów, program) */
+    {                                                                    /* własny odtwarzacz (iPad z panelami, iPhone bez paneli) */
         NSArray *flat = self.found;
         if (!flat) {
             NSMutableArray *all = [NSMutableArray array];

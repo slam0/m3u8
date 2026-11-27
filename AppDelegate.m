@@ -20,7 +20,7 @@
 {
     M3UDiagInstall();
     NSString *crash = M3UDiagCrashReportIfAny();
-    M3UBreadcrumb(@"start aplikacji 1.13.0");
+    M3UBreadcrumb(@"start aplikacji 1.14.0");
     M3UDiagMarkRunning(YES);
     M3UThemeApply();
     [application setStatusBarStyle:UIStatusBarStyleBlackOpaque];
@@ -32,6 +32,7 @@
         dispatch_async(dispatch_get_main_queue(), ^{ [self showSetup]; });
     }
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(languageChanged) name:M3ULanguageDidChange object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(themeChanged) name:M3UThemeDidChange object:nil];
     if (crash) {
         dispatch_async(dispatch_get_main_queue(), ^{
             NSString *msg = [@"Poprzednio aplikacja zamknęła się niespodziewanie (mogło też być zwykłe wyłączenie). Ostatnie kroki:\n\n" stringByAppendingString:crash];
@@ -53,6 +54,15 @@
 - (void)languageChanged
 {
     dispatch_async(dispatch_get_main_queue(), ^{
+        self.window.rootViewController = [self buildRootShowingSettings:YES];
+    });
+}
+
+/* Po zmianie motywu ustawiamy wygląd systemowych pasków i budujemy ekrany od nowa. */
+- (void)themeChanged
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        M3UThemeApply();
         self.window.rootViewController = [self buildRootShowingSettings:YES];
     });
 }

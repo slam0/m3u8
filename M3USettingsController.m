@@ -31,18 +31,18 @@ M3U_ROTATE_ANY
 
 - (void)dealloc { [[NSNotificationCenter defaultCenter] removeObserver:self.tableView]; }
 
-/* sekcje: 0 język, 1 program TV, 2 wygląd, 3 dane, 4 o aplikacji */
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return 5; }
+/* sekcje: 0 język, 1 program TV, 2 wygląd, 3 motyw, 4 dane, 5 o aplikacji */
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return 6; }
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s
 {
-    static const int rows[5] = { 3, 4, 1, 2, 1 };
+    static const int rows[6] = { 3, 4, 1, 5, 2, 2 };
     return rows[s];
 }
 
 - (UIView *)tableView:(UITableView *)tv viewForHeaderInSection:(NSInteger)s
 {
-    NSArray *h = [NSArray arrayWithObjects:@"JĘZYK", @"PROGRAM TV (EPG)", @"WYGLĄD", @"DANE", @"O APLIKACJI", nil];
+    NSArray *h = [NSArray arrayWithObjects:@"JĘZYK", @"PROGRAM TV (EPG)", @"WYGLĄD", @"MOTYW", @"DANE", @"O APLIKACJI", nil];
     return M3UHeaderView(L([h objectAtIndex:(NSUInteger)s]));
 }
 
@@ -88,6 +88,9 @@ M3U_ROTATE_ANY
         c.accessoryView = sw;
         c.selectionStyle = UITableViewCellSelectionStyleNone;
     } else if (ip.section == 3) {
+        c.textLabel.text = L(M3UThemeName(ip.row));
+        c.accessoryType = (ip.row == M3UThemeIndex()) ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
+    } else if (ip.section == 4) {
         if (ip.row == 0) {
             c.textLabel.text = L(@"Wyczyść pamięć logo");
             c.detailTextLabel.text = [NSString stringWithFormat:@"%.1f MB", (double)M3ULogoCacheBytes() / 1048576.0];
@@ -95,10 +98,14 @@ M3U_ROTATE_ANY
             c.textLabel.text = L(@"Pokaż ekran startowy");
             c.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
         }
-    } else {
+    } else if (ip.row == 0) {
         c.textLabel.text = @"iSat";
         NSString *v = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleShortVersionString"] ?: @"";
         c.detailTextLabel.text = [NSString stringWithFormat:@"%@ %@", L(@"Wersja"), v];
+        c.selectionStyle = UITableViewCellSelectionStyleNone;
+    } else {
+        c.textLabel.text = L(@"Autor");
+        c.detailTextLabel.text = @"nazar0vsky (slam0)";
         c.selectionStyle = UITableViewCellSelectionStyleNone;
     }
     return c;
@@ -124,11 +131,13 @@ M3U_ROTATE_ANY
         [a show];
     } else if (ip.section == 1 && ip.row == 2) {
         M3UEpgRefresh(YES);
-    } else if (ip.section == 3 && ip.row == 0) {
+    } else if (ip.section == 3) {
+        M3USetTheme(ip.row);               /* AppDelegate odbuduje ekrany w nowym motywie */
+    } else if (ip.section == 4 && ip.row == 0) {
         M3UClearLogoCache();
         [tv reloadRowsAtIndexPaths:[NSArray arrayWithObject:ip] withRowAnimation:UITableViewRowAnimationNone];
         [[[UIAlertView alloc] initWithTitle:nil message:L(@"Pamięć logo wyczyszczona. Logo pobiorą się ponownie.") delegate:nil cancelButtonTitle:@"OK" otherButtonTitles:nil] show];
-    } else if (ip.section == 3 && ip.row == 1) {
+    } else if (ip.section == 4 && ip.row == 1) {
         [(AppDelegate *)[UIApplication sharedApplication].delegate showSetup];
     }
 }

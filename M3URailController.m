@@ -73,12 +73,11 @@ M3U_ROTATE_ANY
 {
     UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
     b.tag = tag;
-    UIImage *sel = self.bottom ? [[UIImage imageNamed:@"tab_sel"] resizableImageWithCapInsets:UIEdgeInsetsMake(10, 10, 10, 10)]
-                               : [[UIImage imageNamed:@"cell_sel"] resizableImageWithCapInsets:UIEdgeInsetsMake(3, 0, 3, 0)];
+    UIImage *sel = M3USelectionImage(self.bottom);
     [b setBackgroundImage:sel forState:UIControlStateHighlighted];
     [b setBackgroundImage:sel forState:UIControlStateSelected];
     [b addTarget:self action:@selector(railTapped:) forControlEvents:UIControlEventTouchUpInside];
-    UIImageView *iv = [[UIImageView alloc] initWithImage:[UIImage imageNamed:glyph]];
+    UIImageView *iv = [[UIImageView alloc] initWithImage:M3UImg(glyph)];
     iv.tag = 101;
     iv.userInteractionEnabled = NO;
     iv.contentMode = UIViewContentModeScaleAspectFit;
@@ -92,8 +91,8 @@ M3U_ROTATE_ANY
     l.adjustsFontSizeToFitWidth = YES;
     l.minimumFontSize = 8.0f;
     l.textColor = M3UTextColor();
-    l.shadowColor = [UIColor colorWithWhite:0 alpha:0.8f];
-    l.shadowOffset = CGSizeMake(0, -1);
+    l.shadowColor = M3UShadowColor();
+    l.shadowOffset = M3UShadowOffset();
     l.text = title;
     [b addSubview:l];
     return b;
@@ -109,8 +108,8 @@ M3U_ROTATE_ANY
     self.buttons = [NSMutableArray array];
     NSArray *defs;
     if (self.bottom) {
-        self.panel.backgroundColor = [UIColor colorWithRed:0.02f green:0.07f blue:0.24f alpha:1.0f];
-        UIImageView *bg = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"nav_bar"]];
+        self.panel.backgroundColor = M3UPanelColor(1.0f);
+        UIImageView *bg = [[UIImageView alloc] initWithImage:M3UImg(@"nav_bar")];
         bg.tag = 200;
         bg.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
         [self.panel addSubview:bg];
@@ -121,9 +120,9 @@ M3U_ROTATE_ANY
             [NSArray arrayWithObjects:@"Szukaj", @"rail_search", [NSNumber numberWithInt:kTagSearch], nil],
             [NSArray arrayWithObjects:@"Ustawienia", @"rail_gear", [NSNumber numberWithInt:kTagSettings], nil], nil];
     } else {
-        self.panel.backgroundColor = [UIColor colorWithRed:0.02f green:0.07f blue:0.24f alpha:0.55f];
+        self.panel.backgroundColor = M3UPanelColor(0.55f);
         UIView *edge = [[UIView alloc] initWithFrame:CGRectMake(kRailW - 1.0f, 0, 1, 2000)];
-        edge.backgroundColor = [UIColor colorWithRed:0.59f green:0.75f blue:1.0f alpha:0.45f];
+        edge.backgroundColor = M3UPanelEdgeColor();
         [self.panel addSubview:edge];
         UIImageView *logo = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"setup_icon"]];
         logo.frame = CGRectMake((kRailW - 64.0f) / 2.0f, 14, 64, 64);
@@ -133,12 +132,12 @@ M3U_ROTATE_ANY
         name.textAlignment = NSTextAlignmentCenter;
         name.font = [UIFont boldSystemFontOfSize:17.0f];
         name.textColor = M3UTextColor();
-        name.shadowColor = [UIColor colorWithWhite:0 alpha:0.8f];
-        name.shadowOffset = CGSizeMake(0, -1);
+        name.shadowColor = M3UShadowColor();
+        name.shadowOffset = M3UShadowOffset();
         name.text = @"iSat";
         [self.panel addSubview:name];
         UIView *line = [[UIView alloc] initWithFrame:CGRectMake(14, 110, kRailW - 29.0f, 1)];
-        line.backgroundColor = [UIColor colorWithRed:0.59f green:0.75f blue:1.0f alpha:0.4f];
+        line.backgroundColor = M3UPanelEdgeColor();
         [self.panel addSubview:line];
         defs = [NSArray arrayWithObjects:
             [NSArray arrayWithObjects:@"Playlisty", @"rail_list", [NSNumber numberWithInt:kTagPlaylists], nil],

@@ -22,7 +22,7 @@
     self = [super initWithFrame:f];
     if (!self) return nil;
     self.backgroundColor = [UIColor clearColor];
-    _card = [[UIImageView alloc] initWithImage:[[UIImage imageNamed:@"tile_card"] resizableImageWithCapInsets:UIEdgeInsetsMake(14, 14, 14, 14)]];
+    _card = [[UIImageView alloc] initWithImage:[M3UImg(@"tile_card") resizableImageWithCapInsets:UIEdgeInsetsMake(14, 14, 14, 14)]];
     [self.contentView addSubview:_card];
     _poster = [[UIImageView alloc] initWithFrame:CGRectZero];
     _poster.contentMode = UIViewContentModeScaleAspectFill;
@@ -32,8 +32,8 @@
     _title = [[UILabel alloc] initWithFrame:CGRectZero];
     _title.backgroundColor = [UIColor clearColor];
     _title.textColor = M3UTextColor();
-    _title.shadowColor = [UIColor colorWithWhite:0 alpha:0.85f];
-    _title.shadowOffset = CGSizeMake(0, -1);
+    _title.shadowColor = M3UShadowColor();
+    _title.shadowOffset = M3UShadowOffset();
     _title.font = [UIFont boldSystemFontOfSize:12.0f];
     _title.textAlignment = NSTextAlignmentCenter;
     _title.numberOfLines = 2;
@@ -178,8 +178,8 @@ M3U_ROTATE_ANY
     self.messageLabel.numberOfLines = 0;
     self.messageLabel.textAlignment = NSTextAlignmentCenter;
     self.messageLabel.textColor = M3USubtleColor();
-    self.messageLabel.shadowColor = [UIColor colorWithWhite:0 alpha:0.85f];
-    self.messageLabel.shadowOffset = CGSizeMake(0, -1);
+    self.messageLabel.shadowColor = M3UShadowColor();
+    self.messageLabel.shadowOffset = M3UShadowOffset();
     self.messageLabel.font = [UIFont systemFontOfSize:15.0f];
     self.messageLabel.hidden = YES;
     [self.view addSubview:self.messageLabel];
@@ -264,8 +264,8 @@ M3U_ROTATE_ANY
     UILabel *t = [[UILabel alloc] initWithFrame:CGRectMake(x, 12, tw, 20)];
     t.backgroundColor = [UIColor clearColor];
     t.textColor = M3UTextColor();
-    t.shadowColor = [UIColor colorWithWhite:0 alpha:0.85f];
-    t.shadowOffset = CGSizeMake(0, -1);
+    t.shadowColor = M3UShadowColor();
+    t.shadowOffset = M3UShadowOffset();
     t.font = [UIFont boldSystemFontOfSize:17.0f];
     t.numberOfLines = 0;
     t.text = [d objectForKey:@"title"] ?: self.title;

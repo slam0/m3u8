@@ -89,12 +89,12 @@ M3U_ROTATE_ANY
 
 - (UIView *)tableView:(UITableView *)tv viewForFooterInSection:(NSInteger)s
 {
-    return s == 0 ? M3UFooterView(L(@"Adres playlisty skopiujesz np. z panelu swojego dostawcy IPTV. Link mediateki (portal::[key:…]http://…) wklej w całości."), tv.bounds.size.width) : nil;
+    return s == 0 ? M3UFooterView(L(@"Adres playlisty skopiujesz np. z panelu swojego dostawcy IPTV."), tv.bounds.size.width) : nil;
 }
 
 - (CGFloat)tableView:(UITableView *)tv heightForFooterInSection:(NSInteger)s
 {
-    return s == 0 ? M3UFooterHeight(L(@"Adres playlisty skopiujesz np. z panelu swojego dostawcy IPTV. Link mediateki (portal::[key:…]http://…) wklej w całości."), tv.bounds.size.width) : 0.0f;
+    return s == 0 ? M3UFooterHeight(L(@"Adres playlisty skopiujesz np. z panelu swojego dostawcy IPTV."), tv.bounds.size.width) : 0.0f;
 }
 
 - (UIView *)tableView:(UITableView *)tv viewForHeaderInSection:(NSInteger)s

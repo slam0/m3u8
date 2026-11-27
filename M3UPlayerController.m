@@ -6,6 +6,7 @@
 #import <MediaPlayer/MediaPlayer.h>
 #import <QuartzCore/QuartzCore.h>
 
+static BOOL isPhone(void) { return UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPhone; }
 static const CGFloat kEdge = 44.0f;        /* szerokość pasków przy krawędziach, od których zaczyna się przesunięcie */
 static const CGFloat kRow = 62.0f;
 static const double kLiveGap = 30.0;       /* bliżej „teraz” niż tyle sekund = transmisja na żywo */
@@ -54,6 +55,8 @@ static void gsColors(int st, CGFloat *t, CGFloat *b, CGFloat *gloss)
     t[0] = r[0]; t[1] = r[1]; t[2] = r[2]; t[3] = r[6];
     b[0] = r[3]; b[1] = r[4]; b[2] = r[5]; b[3] = r[7];
     *gloss = r[8];
+    int slot = (st == GS_NAV) ? 0 : (st == GS_BLUE ? 1 : (st == GS_SEL ? 2 : -1));
+    if (slot >= 0 && M3UThemeIndex() != 0) M3UPlayerPalette(slot, t, b);       /* akcenty z wybranego motywu */
 }
 
 /* Obraz rozciągliwy w poziomie, o wysokości h. r = promień rogów, border = czarna ramka z jasnym wnętrzem. */
@@ -61,7 +64,7 @@ static UIImage *glossImage(int st, CGFloat h, CGFloat r, BOOL border, BOOL press
 {
     static NSMutableDictionary *cache;
     if (!cache) cache = [[NSMutableDictionary alloc] init];
-    NSString *key = [NSString stringWithFormat:@"%d-%g-%g-%d-%d", st, h, r, border, pressed];
+    NSString *key = [NSString stringWithFormat:@"%d-%g-%g-%d-%d-%d", st, h, r, border, pressed, (int)M3UThemeIndex()];
     UIImage *hit = [cache objectForKey:key];
     if (hit) return hit;
     CGFloat t[4], b[4], gl;
@@ -99,6 +102,27 @@ static UIImage *glossImage(int st, CGFloat h, CGFloat r, BOOL border, BOOL press
     return img;
 }
 
+/* Ikona kalendarza (wybór momentu w archiwum), rysowana kodem. */
+static UIImage *calendarIcon(void)
+{
+    UIGraphicsBeginImageContextWithOptions(CGSizeMake(24, 24), NO, [[UIScreen mainScreen] scale]);
+    CGContextRef c = UIGraphicsGetCurrentContext();
+    for (int pass = 0; pass < 2; pass++) {
+        CGFloat dy = pass == 0 ? 1.0f : 0.0f;
+        CGRect r = CGRectMake(3, 4 + dy, 18, 17);
+        if (pass == 0) { CGContextSetRGBFillColor(c, 0, 0, 0, 0.6f); [[UIBezierPath bezierPathWithRoundedRect:r cornerRadius:2] fill]; continue; }
+        CGContextSetRGBFillColor(c, 0.94f, 0.96f, 0.99f, 1);
+        [[UIBezierPath bezierPathWithRoundedRect:r cornerRadius:2] fill];
+        CGContextSetRGBFillColor(c, 0.80f, 0.27f, 0.20f, 1);
+        CGContextFillRect(c, CGRectMake(3, 4, 18, 5));
+        CGContextSetRGBFillColor(c, 0.27f, 0.31f, 0.43f, 1);
+        for (int i = 0; i < 3; i++) for (int j = 0; j < 2; j++) CGContextFillRect(c, CGRectMake(5.5f + i * 5, 11.5f + j * 4.5f, 3, 2.5f));
+    }
+    UIImage *i = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    return i;
+}
+
 /* Adres archiwum: ten sam adres kanału z dopiskiem utc=<początek>&lutc=<teraz> (serwer sam przelicza przesunięcie). */
 static NSString *archiveURL(NSString *live, double start, double now)
 {
@@ -123,6 +147,7 @@ static NSString *dateTimeText(double t)
 @property (nonatomic, strong) UILabel *barTitle, *barBadge, *barProg, *loLabel, *hiLabel, *knobLabel;
 @property (nonatomic, strong) UISlider *slider;
 @property (nonatomic, strong) UIImageView *topBg, *barBg;
+@property (nonatomic, strong) UIButton *calBtn;
 @property (nonatomic, strong) UIButton *closeButton, *backBtn, *fwdBtn, *playBtn, *liveBtn, *pickBtn;
 @property (nonatomic, strong) NSArray *dayTabs;
 @property (nonatomic, strong) UIActivityIndicatorView *spinner;
@@ -348,10 +373,10 @@ M3U_ROTATE_ANY
 
     /* górny pasek: Zamknij, nazwa kanału, NA ŻYWO z migającą kropką / ARCHIWUM */
     self.topBar = [[UIView alloc] initWithFrame:CGRectZero];
-    self.topBg = [self stripImage:GS_DARK h:48.0f];
+    self.topBg = [self stripImage:GS_DARK h:isPhone() ? 44.0f : 48.0f];
     self.topBg.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     [self.topBar addSubview:self.topBg];
-    self.closeButton = [self glossButton:L(@"Zamknij") style:GS_BLUE h:32.0f radius:7.0f border:YES size:15.0f action:@selector(closePlayer)];
+    self.closeButton = [self glossButton:L(@"Zamknij") style:GS_BLUE h:isPhone() ? 30.0f : 32.0f radius:7.0f border:YES size:isPhone() ? 13.0f : 15.0f action:@selector(closePlayer)];
     [self.topBar addSubview:self.closeButton];
     self.barTitle = [self smallLabel:19.0f color:[UIColor whiteColor] align:NSTextAlignmentLeft];
     self.barTitle.font = [UIFont boldSystemFontOfSize:19.0f];
@@ -375,7 +400,7 @@ M3U_ROTATE_ANY
 
     /* dolny pasek: audycja, oś czasu, przyciski */
     self.bar = [[UIView alloc] initWithFrame:CGRectZero];
-    self.barBg = [self stripImage:GS_DARK h:132.0f];
+    self.barBg = [self stripImage:GS_DARK h:132.0f];     /* rozciągany do wysokości paska */
     self.barBg.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     [self.bar addSubview:self.barBg];
     self.barProg = [self smallLabel:15.0f color:[UIColor whiteColor] align:NSTextAlignmentLeft];
@@ -396,12 +421,21 @@ M3U_ROTATE_ANY
     [self.slider addTarget:self action:@selector(sliderDown) forControlEvents:UIControlEventTouchDown];
     [self.slider addTarget:self action:@selector(sliderMoved) forControlEvents:UIControlEventValueChanged];
     [self.slider addTarget:self action:@selector(sliderUp) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside | UIControlEventTouchCancel];
-    self.backBtn = [self glossButton:L(@"-10 min") style:GS_GRAY h:40.0f radius:8.0f border:YES size:15.0f action:@selector(skipBack)];
-    self.fwdBtn = [self glossButton:L(@"+10 min") style:GS_GRAY h:40.0f radius:8.0f border:YES size:15.0f action:@selector(skipForward)];
-    self.liveBtn = [self glossButton:L(@"Na żywo") style:GS_BLUE h:40.0f radius:8.0f border:YES size:15.0f action:@selector(goLive)];
-    self.playBtn = [self glossButton:nil style:GS_GRAY h:40.0f radius:8.0f border:YES size:15.0f action:@selector(togglePause)];
+    CGFloat bhh = isPhone() ? 32.0f : 40.0f, bfs = isPhone() ? 12.0f : 15.0f;
+    self.backBtn = [self glossButton:L(@"-10 min") style:GS_GRAY h:bhh radius:8.0f border:YES size:bfs action:@selector(skipBack)];
+    self.fwdBtn = [self glossButton:L(@"+10 min") style:GS_GRAY h:bhh radius:8.0f border:YES size:bfs action:@selector(skipForward)];
+    self.liveBtn = [self glossButton:L(@"Na żywo") style:GS_BLUE h:bhh radius:8.0f border:YES size:bfs action:@selector(goLive)];
+    self.playBtn = [self glossButton:nil style:GS_GRAY h:bhh radius:8.0f border:YES size:bfs action:@selector(togglePause)];
     [self.playBtn setImage:playIcon(YES) forState:UIControlStateNormal];
-    for (UIView *v in [NSArray arrayWithObjects:self.barProg, self.loLabel, self.hiLabel, self.slider, self.knobLabel, self.backBtn, self.playBtn, self.fwdBtn, self.liveBtn, nil])
+    self.calBtn = [self glossButton:nil style:GS_GRAY h:bhh radius:8.0f border:YES size:bfs action:@selector(showPicker)];   /* telefon: wybór momentu w archiwum */
+    [self.calBtn setImage:calendarIcon() forState:UIControlStateNormal];
+    self.calBtn.hidden = !isPhone();
+    if (M3UThemeIndex() != 0) {
+        CGFloat ta[4], tb[4];
+        M3UPlayerPalette(1, ta, tb);
+        self.slider.minimumTrackTintColor = [UIColor colorWithRed:ta[0] green:ta[1] blue:ta[2] alpha:1.0f];
+    }
+    for (UIView *v in [NSArray arrayWithObjects:self.barProg, self.loLabel, self.hiLabel, self.slider, self.knobLabel, self.backBtn, self.playBtn, self.fwdBtn, self.calBtn, self.liveBtn, nil])
         [self.bar addSubview:v];
     [self.view addSubview:self.bar];
 
@@ -444,37 +478,60 @@ M3U_ROTATE_ANY
 
 #pragma mark - Układ
 
-- (BOOL)isLandscape { return self.view.bounds.size.width > self.view.bounds.size.height; }
+- (BOOL)isLandscape { return !isPhone() && self.view.bounds.size.width > self.view.bounds.size.height; }       /* panele boczne tylko na iPadzie w poziomie */
 
 - (CGFloat)panelWidth { return MIN(340.0f, (CGFloat)(int)(self.view.bounds.size.width * 0.42f)); }
 
 - (void)layoutBar
 {
     CGRect b = self.view.bounds;
-    CGFloat w = b.size.width, bh = 132.0f;
+    CGFloat w = b.size.width;
+    BOOL phone = isPhone(), portrait = b.size.width < b.size.height;
+    CGFloat topH = phone ? 44.0f : 48.0f, bh = phone ? (portrait ? 112.0f : 100.0f) : 132.0f;
     /* górny pasek na całą szerokość */
-    self.topBar.frame = CGRectMake(0, 0, w, 48);
+    self.topBar.frame = CGRectMake(0, 0, w, topH);
     self.topBg.frame = self.topBar.bounds;
-    self.closeButton.frame = CGRectMake(8, 8, 92, 32);
+    self.closeButton.frame = phone ? CGRectMake(6, 7, 66, 30) : CGRectMake(8, 8, 92, 32);
     BOOL live = !self.archiveMode;
+    CGFloat leftEdge = phone ? 82.0f : 112.0f;
     CGSize ts = [self.barTitle.text ?: @"" sizeWithFont:self.barTitle.font];
-    CGFloat tw = MIN(ts.width, w * 0.38f), dotW = live ? 18.0f : 0.0f, groupW = tw + 12.0f + dotW + 96.0f;
-    CGFloat x0 = MAX(112.0f, (CGFloat)(int)((w - groupW) / 2.0f));
-    self.barTitle.frame = CGRectMake(x0, 11, tw, 26);
-    self.liveDot.frame = CGRectMake(x0 + tw + 12.0f, 19, 10, 10);
-    self.barBadge.frame = CGRectMake(x0 + tw + 12.0f + dotW, 14, 96, 20);
+    CGFloat dotW = live ? 18.0f : 0.0f, badgeW = phone ? 84.0f : 96.0f;
+    CGFloat availT = w - leftEdge - 12.0f - dotW - badgeW - 8.0f;
+    CGFloat tw = MAX(40.0f, MIN(ts.width, MIN(availT, w * 0.38f + (phone ? 40.0f : 0.0f))));
+    CGFloat groupW = tw + 12.0f + dotW + badgeW;
+    CGFloat x0 = MAX(leftEdge, (CGFloat)(int)((w - groupW) / 2.0f));
+    self.barTitle.frame = CGRectMake(x0, phone ? 9 : 11, tw, 26);
+    self.liveDot.frame = CGRectMake(x0 + tw + 12.0f, topH / 2.0f - 5.0f, 10, 10);
+    self.barBadge.frame = CGRectMake(x0 + tw + 12.0f + dotW, topH / 2.0f - 10.0f, badgeW, 20);
+    self.barBadge.font = [UIFont boldSystemFontOfSize:phone ? 12.0f : 14.0f];
+    self.barTitle.font = [UIFont boldSystemFontOfSize:phone ? 16.0f : 19.0f];
     /* dolny pasek na całą szerokość */
     self.bar.frame = CGRectMake(0, b.size.height - bh, w, bh);
     self.barBg.frame = self.bar.bounds;
-    self.barProg.frame = CGRectMake(18, 8, w - 36, 20);
-    self.loLabel.frame = CGRectMake(14, 50, 58, 20);
-    self.hiLabel.frame = CGRectMake(w - 72, 50, 58, 20);
-    self.slider.frame = CGRectMake(74, 45, w - 148, 30);
-    CGFloat bw[4] = { 82, 90, 82, 110 }, gap = 12, total = 82 + 90 + 82 + 110 + gap * 3, x = (CGFloat)(int)((w - total) / 2.0f);
-    NSArray *btns = [NSArray arrayWithObjects:self.backBtn, self.playBtn, self.fwdBtn, self.liveBtn, nil];
-    for (NSUInteger i = 0; i < 4; i++) {
+    CGFloat sideM = phone ? 44.0f : 74.0f, cy = phone ? 42.0f : 60.0f, bt = phone ? bh - 42.0f : 86.0f, bhh = phone ? 32.0f : 40.0f;
+    self.barProg.frame = CGRectMake(phone ? 12 : 18, phone ? 6 : 8, w - (phone ? 24 : 36), 20);
+    self.loLabel.frame = CGRectMake(phone ? 6 : 14, cy - 10.0f, sideM - 6.0f, 20);
+    self.hiLabel.frame = CGRectMake(w - sideM, cy - 10.0f, sideM - 6.0f, 20);
+    self.slider.frame = CGRectMake(sideM, cy - 15.0f, w - 2.0f * sideM, 30);
+    CGFloat bw[5], gap;
+    NSArray *btns;
+    if (phone) {
+        gap = portrait ? 6.0f : 8.0f;
+        CGFloat pw[5] = { 54, 58, 54, 40, 72 }, lw[5] = { 64, 70, 64, 44, 84 };
+        for (int i = 0; i < 5; i++) bw[i] = portrait ? pw[i] : lw[i];
+        btns = [NSArray arrayWithObjects:self.backBtn, self.playBtn, self.fwdBtn, self.calBtn, self.liveBtn, nil];
+    } else {
+        gap = 12.0f;
+        bw[0] = 82; bw[1] = 90; bw[2] = 82; bw[3] = 110; bw[4] = 0;
+        btns = [NSArray arrayWithObjects:self.backBtn, self.playBtn, self.fwdBtn, self.liveBtn, nil];
+    }
+    NSUInteger n = [btns count];
+    CGFloat total = gap * (CGFloat)(n - 1);
+    for (NSUInteger i = 0; i < n; i++) total += bw[i];
+    CGFloat x = (CGFloat)(int)((w - total) / 2.0f), bt0 = bt;
+    for (NSUInteger i = 0; i < n; i++) {
         UIButton *bt = [btns objectAtIndex:i];
-        bt.frame = CGRectMake(x, 86, bw[i], 40);
+        bt.frame = CGRectMake(x, bt0, bw[i], bhh);
         x += bw[i] + gap;
     }
 }
@@ -627,7 +684,8 @@ M3U_ROTATE_ANY
         [self showToast:L(@"Archiwum jest niedostępne dla tego kanału lub momentu. Wracam na żywo.")];
         [self playLive];
     } else {
-        [self showToast:L(@"Nie udało się odtworzyć kanału. Wybierz inny z listy (przesuń palcem od prawej krawędzi).")];
+        [self showToast:isPhone() ? L(@"Nie udało się odtworzyć kanału. Przesuń palcem w górę lub w dół, aby wybrać inny.")
+                                  : L(@"Nie udało się odtworzyć kanału. Wybierz inny z listy (przesuń palcem od prawej krawędzi).")];
     }
 }
 
@@ -729,13 +787,18 @@ M3U_ROTATE_ANY
 
 - (void)updateKnobLabel:(double)pos
 {
-    self.knobLabel.text = M3UEpgClock(pos);
+    BOOL phone = isPhone();
+    self.knobLabel.text = (phone && self.dragging) ? dateTimeText(pos) : M3UEpgClock(pos);
+    CGFloat kw = (phone && self.dragging) ? 86.0f : 56.0f;
     CGRect tr = [self.slider trackRectForBounds:self.slider.bounds];
     CGRect th = [self.slider thumbRectForBounds:self.slider.bounds trackRect:tr value:self.slider.value];
-    self.knobLabel.frame = CGRectMake(self.slider.frame.origin.x + CGRectGetMidX(th) - 28.0f, 27.0f, 56, 17);
+    CGFloat cx = self.slider.frame.origin.x + CGRectGetMidX(th);
+    cx = MAX(kw / 2.0f + 2.0f, MIN(self.bar.bounds.size.width - kw / 2.0f - 2.0f, cx));
+    self.knobLabel.frame = CGRectMake(cx - kw / 2.0f, phone ? 7.0f : 27.0f, kw, 17);
+    self.knobLabel.hidden = phone && !self.dragging;           /* na telefonie etykieta gałki tylko przy przeciąganiu (nie zasłania tytułu audycji) */
 }
 
-- (void)sliderDown { self.dragging = YES; self.sDown = self.slider.value; [self.hideTimer invalidate]; }
+- (void)sliderDown { self.dragging = YES; self.sDown = self.slider.value; [self.hideTimer invalidate]; self.barProg.hidden = isPhone(); }
 
 - (void)sliderMoved
 {
@@ -748,6 +811,7 @@ M3U_ROTATE_ANY
 {
     double t = self.sLo + (self.sHi - self.sLo) * self.slider.value;
     self.dragging = NO;
+    self.barProg.hidden = NO;
     if (fabsf(self.slider.value - self.sDown) < 0.004f) { [self showOverlay]; return; }      /* samo dotknięcie nic nie zmienia */
     [self playArchiveFrom:t];                      /* blisko „teraz” przechodzi na żywo */
 }
@@ -926,24 +990,24 @@ M3U_ROTATE_ANY
     if (self.pickerOpen) return;
     self.pickerOpen = YES;
     CGRect b = self.view.bounds;
-    UIView *v = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 340, 332)];
+    UIView *v = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 340, 304)];
     v.backgroundColor = [UIColor colorWithRed:0.055f green:0.07f blue:0.12f alpha:0.98f];
     v.layer.cornerRadius = 12.0f;
     v.layer.borderWidth = 2.0f;
     v.layer.borderColor = [UIColor blackColor].CGColor;
     v.clipsToBounds = YES;
-    UIImageView *hd = [self stripImage:GS_NAV h:48.0f];
-    hd.frame = CGRectMake(0, 0, 340, 48);
+    UIImageView *hd = [self stripImage:GS_NAV h:38.0f];
+    hd.frame = CGRectMake(0, 0, 340, 38);
     [v addSubview:hd];
     UILabel *t = [self smallLabel:18.0f color:M3UTextColor() align:NSTextAlignmentCenter];
     t.textColor = [UIColor whiteColor];
     t.shadowColor = [UIColor colorWithWhite:0 alpha:0.75f];
     t.shadowOffset = CGSizeMake(0, -1);
     t.font = [UIFont boldSystemFontOfSize:18.0f];
-    t.frame = CGRectMake(10, 10, 320, 28);
+    t.frame = CGRectMake(10, 5, 320, 28);
     t.text = L(@"Archiwum: wybierz moment");
     [v addSubview:t];
-    UIDatePicker *p = [[UIDatePicker alloc] initWithFrame:CGRectMake(10, 52, 320, 216)];
+    UIDatePicker *p = [[UIDatePicker alloc] initWithFrame:CGRectMake(10, 40, 320, 216)];
     p.datePickerMode = UIDatePickerModeDateAndTime;
     double now = [self nowEpoch];
     p.minimumDate = [NSDate dateWithTimeIntervalSince1970:now - kArchiveDepth];
@@ -951,11 +1015,11 @@ M3U_ROTATE_ANY
     p.date = [NSDate dateWithTimeIntervalSince1970:MAX(now - kArchiveDepth, MIN(now - 3600.0, [self position]))];
     [v addSubview:p];
     self.picker = p;
-    UIButton *no = [self glossButton:L(@"Anuluj") style:GS_GRAY h:44.0f radius:9.0f border:YES size:16.0f action:@selector(hidePicker)];
-    no.frame = CGRectMake(14, 274, 148, 44);
+    UIButton *no = [self glossButton:L(@"Anuluj") style:GS_GRAY h:38.0f radius:9.0f border:YES size:16.0f action:@selector(hidePicker)];
+    no.frame = CGRectMake(14, 258, 148, 38);
     [v addSubview:no];
-    UIButton *go = [self glossButton:L(@"Odtwórz") style:GS_BLUE h:44.0f radius:9.0f border:YES size:16.0f action:@selector(pickerGo)];
-    go.frame = CGRectMake(178, 274, 148, 44);
+    UIButton *go = [self glossButton:L(@"Odtwórz") style:GS_BLUE h:38.0f radius:9.0f border:YES size:16.0f action:@selector(pickerGo)];
+    go.frame = CGRectMake(178, 258, 148, 38);
     [v addSubview:go];
     v.center = CGPointMake(b.size.width / 2.0f, b.size.height / 2.0f);
     self.pickerView = v;
