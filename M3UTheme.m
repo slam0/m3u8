@@ -4,20 +4,21 @@ NSString *const M3UThemeDidChange = @"M3UThemeDidChange";
 static NSString *const kThemeKey = @"app_theme";
 static NSInteger sTheme = -1;
 
-NSInteger M3UThemeCount(void) { return 5; }
+NSInteger M3UThemeCount(void) { return 6; }
 
 NSInteger M3UThemeIndex(void)
 {
     if (sTheme < 0) {
-        NSInteger t = [[NSUserDefaults standardUserDefaults] integerForKey:kThemeKey];
-        sTheme = (t >= 0 && t < 5) ? t : 0;
+        id stored = [[NSUserDefaults standardUserDefaults] objectForKey:kThemeKey];
+        NSInteger t = stored ? [stored integerValue] : 5;           /* domyślnie motyw iSat */
+        sTheme = (t >= 0 && t < 6) ? t : 5;
     }
     return sTheme;
 }
 
 void M3USetTheme(NSInteger index)
 {
-    if (index < 0 || index >= 5 || index == M3UThemeIndex()) return;
+    if (index < 0 || index >= 6 || index == M3UThemeIndex()) return;
     sTheme = index;
     [[NSUserDefaults standardUserDefaults] setInteger:index forKey:kThemeKey];
     [[NSNotificationCenter defaultCenter] postNotificationName:M3UThemeDidChange object:nil];
@@ -25,9 +26,12 @@ void M3USetTheme(NSInteger index)
 
 NSString *M3UThemeName(NSInteger i)
 {
-    static NSString *const n[5] = { @"Niebieski", @"Srebrny", @"Klasyczny", @"Ciemny", @"Granatowy gradient" };
-    return (i >= 0 && i < 5) ? n[i] : @"";
+    static NSString *const n[6] = { @"Niebieski", @"Srebrny", @"Klasyczny", @"Ciemny", @"Granatowy gradient", @"iSat" };
+    return (i >= 0 && i < 6) ? n[i] : @"";
 }
+
+/* Motyw iSat (5) ma paletę i grafiki Granatowego (4); inne jest tylko tło. */
+static NSInteger variant(void) { NSInteger t = M3UThemeIndex(); return t == 5 ? 4 : t; }
 
 static BOOL themeLight(void) { NSInteger t = M3UThemeIndex(); return t == 1 || t == 2; }
 
@@ -68,7 +72,7 @@ static UIImage *classicStretch(NSString *key, CGFloat w, CGFloat h, CGFloat r, c
 /* Grafika w wersji bieżącego motywu: pliki z końcówką _t1 (srebrny), _t3 (ciemny), _t4 (granatowy); klasyczny rysujemy kodem. */
 UIImage *M3UImg(NSString *name)
 {
-    NSInteger t = M3UThemeIndex();
+    NSInteger t = variant();
     if (t == 0) return [UIImage imageNamed:name];
     BOOL icon = [name hasPrefix:@"rail_"] || [name hasPrefix:@"ico_"];
     if (t == 2) {
@@ -97,7 +101,7 @@ static UIImage *img(NSString *name) { return M3UImg(name); }
 
 UIColor *M3UTextColor(void)
 {
-    switch (M3UThemeIndex()) {
+    switch (variant()) {
         case 1: return rgb(48, 52, 62, 1);
         case 2: return rgb(0, 0, 0, 1);
         case 3: return rgb(240, 240, 244, 1);
@@ -107,7 +111,7 @@ UIColor *M3UTextColor(void)
 
 UIColor *M3USubtleColor(void)
 {
-    switch (M3UThemeIndex()) {
+    switch (variant()) {
         case 1: return rgb(100, 107, 122, 1);
         case 2: return rgb(81, 102, 145, 1);
         case 3: return rgb(150, 150, 162, 1);
@@ -118,7 +122,7 @@ UIColor *M3USubtleColor(void)
 
 UIColor *M3UAccentColor(void)
 {
-    switch (M3UThemeIndex()) {
+    switch (variant()) {
         case 1: return rgb(36, 100, 220, 1);
         case 2: return rgb(56, 84, 135, 1);
         case 3: return rgb(92, 160, 255, 1);
@@ -128,7 +132,7 @@ UIColor *M3UAccentColor(void)
 
 UIColor *M3UShadowColor(void)
 {
-    switch (M3UThemeIndex()) {
+    switch (variant()) {
         case 1: return [UIColor colorWithWhite:1.0f alpha:0.9f];
         case 2: return [UIColor clearColor];
         default: return [UIColor colorWithWhite:0.0f alpha:0.85f];
@@ -139,7 +143,7 @@ CGSize M3UShadowOffset(void) { return themeLight() ? CGSizeMake(0, 1) : CGSizeMa
 
 UIColor *M3UPanelColor(CGFloat a)
 {
-    switch (M3UThemeIndex()) {
+    switch (variant()) {
         case 1: return rgb(206, 210, 218, a);
         case 2: return rgb(214, 220, 230, a);
         case 3: return rgb(20, 20, 24, a);
@@ -184,7 +188,7 @@ void M3UPlayerPalette(int slot, CGFloat *top, CGFloat *bot)
         { { .36f, .36f, .38f, .09f, .09f, .10f }, { .36f, .60f, .92f, .12f, .31f, .75f }, { .35f, .59f, .94f, .12f, .33f, .80f } },
         { { .23f, .35f, .63f, .05f, .10f, .26f }, { .27f, .47f, .82f, .08f, .24f, .59f }, { .24f, .41f, .78f, .08f, .22f, .55f } }
     };
-    const CGFloat *r = tab[M3UThemeIndex()][slot];
+    const CGFloat *r = tab[variant()][slot];
     for (int i = 0; i < 3; i++) { top[i] = r[i]; bot[i] = r[3 + i]; }
 }
 
@@ -206,6 +210,46 @@ static UIImage *gradientImage(CGFloat h, const CGFloat *t, const CGFloat *b, BOO
     UIImage *i = UIGraphicsGetImageFromCurrentImageContext();
     UIGraphicsEndImageContext();
     return [i resizableImageWithCapInsets:UIEdgeInsetsMake(0, 1, 0, 1)];
+}
+
+/* Tło motywu iSat: gradient granatowy, jasna poświata za środkiem i ukośne pasy zanikające ku górze. */
+static UIImage *isatImage(CGSize sz)
+{
+    UIGraphicsBeginImageContextWithOptions(sz, YES, [[UIScreen mainScreen] scale]);
+    CGContextRef c = UIGraphicsGetCurrentContext();
+    CGFloat w = sz.width, h = sz.height;
+    CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB();
+    CGFloat lin[8] = { 24 / 255.0f, 42 / 255.0f, 100 / 255.0f, 1, 3 / 255.0f, 6 / 255.0f, 22 / 255.0f, 1 };
+    CGGradientRef g = CGGradientCreateWithColorComponents(cs, lin, NULL, 2);
+    CGContextDrawLinearGradient(c, g, CGPointMake(0, 0), CGPointMake(0, h), 0);
+    CGGradientRelease(g);
+    CGFloat rad[8] = { 60 / 255.0f, 120 / 255.0f, 1.0f, 0.40f, 60 / 255.0f, 120 / 255.0f, 1.0f, 0.0f };
+    CGGradientRef gl = CGGradientCreateWithColorComponents(cs, rad, NULL, 2);
+    CGFloat r = MIN(w, h) * 0.62f;
+    CGContextSaveGState(c);
+    CGContextTranslateCTM(c, w / 2.0f, h * 0.455f);                /* elipsa: rozciągnięcie w poziomie nieco większe niż w pionie */
+    CGContextDrawRadialGradient(c, gl, CGPointZero, 0, CGPointZero, r, 0);
+    CGContextRestoreGState(c);
+    CGGradientRelease(gl);
+    CGFloat y0 = h * 0.616f, step = h * 0.0528f, wd = h * 0.0229f, slant = 0.26f, fade = h * 0.194f;
+    CGFloat sc[8] = { 80 / 255.0f, 140 / 255.0f, 1.0f, 0.0f, 80 / 255.0f, 140 / 255.0f, 1.0f, 0.16f };
+    CGGradientRef sg = CGGradientCreateWithColorComponents(cs, sc, NULL, 2);
+    for (CGFloat x = -(h - y0) * slant - step; x < w + step; x += step) {
+        CGContextSaveGState(c);
+        CGContextMoveToPoint(c, x, h);
+        CGContextAddLineToPoint(c, x + wd, h);
+        CGContextAddLineToPoint(c, x + wd + (h - y0) * slant, y0);
+        CGContextAddLineToPoint(c, x + (h - y0) * slant, y0);
+        CGContextClosePath(c);
+        CGContextClip(c);
+        CGContextDrawLinearGradient(c, sg, CGPointMake(0, y0), CGPointMake(0, MIN(h, y0 + fade)), kCGGradientDrawsAfterEndLocation);
+        CGContextRestoreGState(c);
+    }
+    CGGradientRelease(sg);
+    CGColorSpaceRelease(cs);
+    UIImage *i = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    return i;
 }
 
 /* Płytka ze smugami jak w szczotkowanym metalu (do powtarzania). */
@@ -265,6 +309,15 @@ static UIImage *brushedTile(void)
     [super layoutSubviews];
     CGFloat bw = self.bounds.size.width, bh = self.bounds.size.height;
     NSInteger t = self.forceBlue ? 0 : M3UThemeIndex();
+    if (t == 5) {                                               /* iSat: granat, poświata i ukośne pasy u dołu */
+        _tex.hidden = YES;
+        _pic.hidden = NO;
+        _pic.frame = CGRectMake(0, 0, bw, bh);
+        self.backgroundColor = [UIColor blackColor];
+        if (_themeShown != 5 || fabs(_pic.image.size.height - bh) > 1.0f || fabs(_pic.image.size.width - bw) > 1.0f) _pic.image = isatImage(CGSizeMake(MAX(bw, 8.0f), MAX(bh, 8.0f)));
+        _themeShown = 5;
+        return;
+    }
     if (t != 0) {
         _pic.hidden = NO;
         _tex.hidden = YES;

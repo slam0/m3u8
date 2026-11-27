@@ -469,7 +469,10 @@ static const char *const kRows[][3] = {
       "Выбрать момент в архиве" },
     { "Nie udało się odtworzyć kanału. Przesuń palcem w górę lub w dół, aby wybrać inny.",
       "Couldn't play the channel. Swipe up or down to pick another one.",
-      "Не удалось воспроизвести канал. Проведите вверх или вниз, чтобы выбрать другой." }
+      "Не удалось воспроизвести канал. Проведите вверх или вниз, чтобы выбрать другой." },
+    { "iSat",
+      "iSat",
+      "iSat" }
 };
 
 static NSDictionary *table(int col)

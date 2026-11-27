@@ -10,6 +10,9 @@ static NSString *const kLayoutKey = @"layout_grid";
 @interface M3USettingsController () <UIAlertViewDelegate>
 @end
 
+/* Kolejność motywów na liście: iSat (5) pierwszy, potem pozostałe. */
+static NSInteger themeAtRow(NSInteger row) { static const NSInteger o[6] = { 5, 0, 1, 2, 3, 4 }; return (row >= 0 && row < 6) ? o[row] : 5; }
+
 @implementation M3USettingsController
 
 M3U_ROTATE_ANY
@@ -36,7 +39,7 @@ M3U_ROTATE_ANY
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s
 {
-    static const int rows[6] = { 3, 4, 1, 5, 2, 2 };
+    static const int rows[6] = { 3, 4, 1, 6, 2, 2 };
     return rows[s];
 }
 
@@ -88,8 +91,8 @@ M3U_ROTATE_ANY
         c.accessoryView = sw;
         c.selectionStyle = UITableViewCellSelectionStyleNone;
     } else if (ip.section == 3) {
-        c.textLabel.text = L(M3UThemeName(ip.row));
-        c.accessoryType = (ip.row == M3UThemeIndex()) ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
+        c.textLabel.text = L(M3UThemeName(themeAtRow(ip.row)));
+        c.accessoryType = (themeAtRow(ip.row) == M3UThemeIndex()) ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
     } else if (ip.section == 4) {
         if (ip.row == 0) {
             c.textLabel.text = L(@"Wyczyść pamięć logo");
@@ -132,7 +135,7 @@ M3U_ROTATE_ANY
     } else if (ip.section == 1 && ip.row == 2) {
         M3UEpgRefresh(YES);
     } else if (ip.section == 3) {
-        M3USetTheme(ip.row);               /* AppDelegate odbuduje ekrany w nowym motywie */
+        M3USetTheme(themeAtRow(ip.row));               /* AppDelegate odbuduje ekrany w nowym motywie */
     } else if (ip.section == 4 && ip.row == 0) {
         M3UClearLogoCache();
         [tv reloadRowsAtIndexPaths:[NSArray arrayWithObject:ip] withRowAnimation:UITableViewRowAnimationNone];

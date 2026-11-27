@@ -2,7 +2,7 @@
 
 /* Granatowo-niebieski wygląd w stylu iOS 6: gładkie niebieskie tło z błyskiem, błyszczące paski i guziki. */
 
-/* Motywy: 0 Niebieski (domyślny), 1 Srebrny, 2 Klasyczny, 3 Ciemny, 4 Granatowy gradient */
+/* Motywy: 0 Niebieski, 1 Srebrny, 2 Klasyczny, 3 Ciemny, 4 Granatowy gradient, 5 iSat (domyślny, paleta Granatowego + własne tło) */
 extern NSString *const M3UThemeDidChange;
 NSInteger M3UThemeCount(void);
 NSInteger M3UThemeIndex(void);
