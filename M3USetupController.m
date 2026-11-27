@@ -6,17 +6,23 @@
 
 static NSString *const kSetupDone = @"setup_done";
 static NSString *const kLayoutKey = @"layout_grid";
-static const NSInteger kPages = 4;
+static const NSInteger kPages = 5;          /* 0 język, 1 powitanie, 2 sposoby, 3 formularz, 4 wygląd */
+static const NSInteger kFormPage = 3;
 
-@interface M3USetupController () <UIScrollViewDelegate, UITextFieldDelegate>
+@interface M3USetupController () <UIScrollViewDelegate, UITextFieldDelegate, UIPickerViewDataSource, UIPickerViewDelegate>
 @property (nonatomic, strong) UIScrollView *pager;
-@property (nonatomic, strong) UIPageControl *dots;
+@property (nonatomic, strong) UIView *progress;
+@property (nonatomic, strong) NSMutableArray *segments;
 @property (nonatomic, strong) UIButton *mainButton;
 @property (nonatomic, strong) UIButton *skipButton;
 @property (nonatomic, strong) UITextField *nameField;
 @property (nonatomic, strong) UITextField *urlField;
 @property (nonatomic, strong) UIButton *listChoice;
 @property (nonatomic, strong) UIButton *gridChoice;
+@property (nonatomic, strong) UIView *listRadio;
+@property (nonatomic, strong) UIView *gridRadio;
+@property (nonatomic, strong) UIPickerView *picker;
+@property (nonatomic, strong) NSMutableArray *regs;        /* napisy do odświeżenia po zmianie języka: {widok, klucz, rodzaj} */
 @property (nonatomic, assign) NSInteger page;
 @property (nonatomic, assign) BOOL gridSelected;
 @property (nonatomic, assign) CGFloat urlFieldBottom;
@@ -39,7 +45,43 @@ M3U_ROTATE_PORTRAIT
 
 #pragma mark - Pomocnicze
 
-static UILabel *makeLabel(NSString *text, CGRect frame, CGFloat size, BOOL bold, UIColor *color, NSTextAlignment align)
+static UIColor *coral(void) { return [UIColor colorWithRed:1.0f green:100 / 255.0f blue:86 / 255.0f alpha:1.0f]; }
+static UIColor *softBlue(void) { return [UIColor colorWithRed:170 / 255.0f green:205 / 255.0f blue:250 / 255.0f alpha:1.0f]; }
+
+static UIImage *stretchH(NSString *name, CGFloat cap)          /* rozciągany tylko poziomo (przyciski) */
+{
+    return [[UIImage imageNamed:name] resizableImageWithCapInsets:UIEdgeInsetsMake(0, cap, 0, cap)];
+}
+
+static UIImage *stretchAll(NSString *name, CGFloat cap)
+{
+    return [[UIImage imageNamed:name] resizableImageWithCapInsets:UIEdgeInsetsMake(cap, cap, cap, cap)];
+}
+
+enum { kRegText = 0, kRegPlaceholder = 1, kRegTitle = 2 };
+
+- (void)reg:(UIView *)v key:(NSString *)key kind:(int)kind
+{
+    [self.regs addObject:[NSArray arrayWithObjects:v, key, [NSNumber numberWithInt:kind], nil]];
+}
+
+/* Napis z kluczem tłumaczenia: odświeża się sam po zmianie języka na pierwszym ekranie. */
+- (UILabel *)label:(NSString *)key frame:(CGRect)frame size:(CGFloat)size bold:(BOOL)bold color:(UIColor *)color align:(NSTextAlignment)align
+{
+    UILabel *l = [[UILabel alloc] initWithFrame:frame];
+    l.backgroundColor = [UIColor clearColor];
+    l.text = L(key);
+    l.textColor = color;
+    l.textAlignment = align;
+    l.font = bold ? [UIFont boldSystemFontOfSize:size] : [UIFont systemFontOfSize:size];
+    l.shadowColor = [UIColor colorWithRed:0 green:0.03f blue:0.16f alpha:0.75f];
+    l.shadowOffset = CGSizeMake(0, 1);
+    l.numberOfLines = 0;
+    [self reg:l key:key kind:kRegText];
+    return l;
+}
+
+- (UILabel *)plain:(NSString *)text frame:(CGRect)frame size:(CGFloat)size bold:(BOOL)bold color:(UIColor *)color align:(NSTextAlignment)align
 {
     UILabel *l = [[UILabel alloc] initWithFrame:frame];
     l.backgroundColor = [UIColor clearColor];
@@ -47,54 +89,67 @@ static UILabel *makeLabel(NSString *text, CGRect frame, CGFloat size, BOOL bold,
     l.textColor = color;
     l.textAlignment = align;
     l.font = bold ? [UIFont boldSystemFontOfSize:size] : [UIFont systemFontOfSize:size];
-    l.shadowColor = [UIColor colorWithRed:0 green:0.08f blue:0.27f alpha:0.8f];
+    l.shadowColor = [UIColor colorWithRed:0 green:0.03f blue:0.16f alpha:0.75f];
     l.shadowOffset = CGSizeMake(0, 1);
-    l.numberOfLines = 0;
     return l;
 }
 
-static UIColor *softWhite(void) { return [UIColor whiteColor]; }
-static UIColor *softBlue(void) { return [UIColor colorWithRed:0.78f green:0.89f blue:1.0f alpha:1.0f]; }
-
-static UIImage *stretch(NSString *name, CGFloat cap)
-{
-    return [[UIImage imageNamed:name] resizableImageWithCapInsets:UIEdgeInsetsMake(cap, cap, cap, cap)];
-}
-
-static UIButton *barButton(NSString *title, CGRect frame, id target, SEL action)
+- (UIButton *)ghostButton:(NSString *)key frame:(CGRect)frame action:(SEL)action
 {
     UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
     b.frame = frame;
-    [b setBackgroundImage:stretch(@"btn_bar", 10) forState:UIControlStateNormal];
-    [b setBackgroundImage:stretch(@"btn_bar_pressed", 10) forState:UIControlStateHighlighted];
-    [b setTitle:title forState:UIControlStateNormal];
-    b.titleLabel.font = [UIFont boldSystemFontOfSize:14];
-    b.titleLabel.shadowOffset = CGSizeMake(0, -1);
-    [b setTitleShadowColor:[UIColor colorWithWhite:0 alpha:0.6f] forState:UIControlStateNormal];
-    [b setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-    [b addTarget:target action:action forControlEvents:UIControlEventTouchUpInside];
+    [b setBackgroundImage:stretchH(@"setup_ghost", 18) forState:UIControlStateNormal];
+    [b setBackgroundImage:stretchH(@"setup_ghost_pressed", 18) forState:UIControlStateHighlighted];
+    [b setTitle:L(key) forState:UIControlStateNormal];
+    b.titleLabel.font = [UIFont boldSystemFontOfSize:13];
+    [b setTitleColor:[UIColor colorWithRed:0.88f green:0.93f blue:1.0f alpha:1.0f] forState:UIControlStateNormal];
+    [b addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
+    [self reg:b key:key kind:kRegTitle];
     return b;
 }
 
-static UIImageView *glassPanel(CGRect frame)
-{
-    UIImageView *v = [[UIImageView alloc] initWithImage:stretch(@"glass_panel", 14)];
-    v.frame = frame;
-    return v;
-}
-
-- (UITextField *)makeField:(NSString *)placeholder frame:(CGRect)f
+- (UITextField *)makeField:(NSString *)placeholderKey placeholder:(NSString *)raw frame:(CGRect)f
 {
     UITextField *t = [[UITextField alloc] initWithFrame:f];
-    t.borderStyle = UITextBorderStyleRoundedRect;
-    t.placeholder = placeholder;
-    t.font = [UIFont systemFontOfSize:16];
+    t.borderStyle = UITextBorderStyleNone;
+    t.background = stretchAll(@"setup_field", 14);
+    t.textColor = [UIColor whiteColor];
+    t.font = [UIFont systemFontOfSize:15];
+    t.leftView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 12, 10)];
+    t.leftViewMode = UITextFieldViewModeAlways;
+    t.contentVerticalAlignment = UIControlContentVerticalAlignmentCenter;
     t.autocorrectionType = UITextAutocorrectionTypeNo;
     t.autocapitalizationType = UITextAutocapitalizationTypeNone;
     t.clearButtonMode = UITextFieldViewModeWhileEditing;
     t.keyboardAppearance = UIKeyboardAppearanceAlert;
     t.delegate = self;
+    [self setPlaceholder:placeholderKey ? L(placeholderKey) : raw forField:t];
+    if (placeholderKey) [self reg:t key:placeholderKey kind:kRegPlaceholder];
     return t;
+}
+
+- (void)setPlaceholder:(NSString *)text forField:(UITextField *)t
+{
+    UIColor *c = [UIColor colorWithRed:110 / 255.0f green:130 / 255.0f blue:175 / 255.0f alpha:1.0f];
+    if ([t respondsToSelector:@selector(setAttributedPlaceholder:)]) {
+        t.attributedPlaceholder = [[NSAttributedString alloc] initWithString:text attributes:[NSDictionary dictionaryWithObject:c forKey:NSForegroundColorAttributeName]];
+    } else {
+        t.placeholder = text;
+    }
+}
+
+- (UIView *)radio:(CGPoint)center
+{
+    UIView *r = [[UIView alloc] initWithFrame:CGRectMake(center.x - 8, center.y - 8, 16, 16)];
+    r.layer.cornerRadius = 8.0f;
+    r.layer.borderWidth = 1.5f;
+    r.userInteractionEnabled = NO;
+    UIView *dot = [[UIView alloc] initWithFrame:CGRectMake(4.5f, 4.5f, 7, 7)];
+    dot.layer.cornerRadius = 3.5f;
+    dot.backgroundColor = coral();
+    dot.tag = 7;
+    [r addSubview:dot];
+    return r;
 }
 
 #pragma mark - Widok
@@ -102,10 +157,11 @@ static UIImageView *glassPanel(CGRect frame)
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-    self.gridSelected = YES;                                   /* kafelki wybrane na start, jak na makiecie */
+    self.regs = [NSMutableArray array];
+    self.gridSelected = YES;                                   /* kafelki wybrane na start */
     CGRect b = self.view.bounds;
     CGFloat W = b.size.width, H = b.size.height;
-    [self.view addSubview:M3UBackdropViewBlue(b)];
+    [self.view addSubview:M3UBackdropViewNSat(b)];
 
     self.pager = [[UIScrollView alloc] initWithFrame:b];
     self.pager.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
@@ -117,39 +173,53 @@ static UIImageView *glassPanel(CGRect frame)
     self.pager.contentSize = CGSizeMake(W * kPages, H);
     [self.view addSubview:self.pager];
 
-    CGFloat extra = (H > 470.0f) ? (H - 460.0f) * 0.35f : 0.0f;       /* na wyższym ekranie (iPhone 5) trochę luzu */
-    if (extra > 130.0f) extra = 130.0f;
     /* na iPadzie treść stoi w wąskiej kolumnie pośrodku, jak na telefonie */
     CGFloat cw = W > 480.0f ? 420.0f : W, cx = (W - cw) / 2.0f;
-    [self buildWelcome:CGRectMake(cx, 0, cw, H) extra:extra];
-    [self buildWays:CGRectMake(W + cx, 0, cw, H) extra:extra];
-    [self buildForm:CGRectMake(W * 2 + cx, 0, cw, H) extra:extra];
-    [self buildLayout:CGRectMake(W * 3 + cx, 0, cw, H) extra:extra];
-
-    self.dots = [[UIPageControl alloc] initWithFrame:CGRectMake(0, H - 86, W, 20)];
-    self.dots.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin;
-    self.dots.numberOfPages = kPages;
-    if ([self.dots respondsToSelector:@selector(setPageIndicatorTintColor:)]) {
-        self.dots.pageIndicatorTintColor = [UIColor colorWithWhite:1.0f alpha:0.4f];
-        self.dots.currentPageIndicatorTintColor = [UIColor whiteColor];
+    for (NSInteger i = 0; i < kPages; i++) {
+        CGRect f = CGRectMake(W * i + cx, 0, cw, H);
+        switch (i) {
+            case 0: [self buildLanguage:f]; break;
+            case 1: [self buildWelcome:f]; break;
+            case 2: [self buildWays:f]; break;
+            case 3: [self buildForm:f]; break;
+            default: [self buildLayout:f]; break;
+        }
     }
-    self.dots.userInteractionEnabled = NO;
-    [self.view addSubview:self.dots];
+
+    /* pasek postępu: pięć segmentów u góry */
+    self.progress = [[UIView alloc] initWithFrame:CGRectMake(cx + 18, 16, 5 * 39, 3)];
+    self.segments = [NSMutableArray array];
+    for (int i = 0; i < 5; i++) {
+        CALayer *s = [CALayer layer];
+        s.frame = CGRectMake(i * 39, 0, 35, 3);
+        s.cornerRadius = 1.5f;
+        [self.progress.layer addSublayer:s];
+        [self.segments addObject:s];
+    }
+    [self.view addSubview:self.progress];
 
     self.mainButton = [UIButton buttonWithType:UIButtonTypeCustom];
-    self.mainButton.frame = CGRectMake((W - 200) / 2.0f, H - 58, 200, 44);
+    self.mainButton.frame = CGRectMake((W - 190) / 2.0f, H - 58, 190, 44);
     self.mainButton.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleTopMargin;
-    [self.mainButton setBackgroundImage:stretch(@"btn_main", 18) forState:UIControlStateNormal];
-    [self.mainButton setBackgroundImage:stretch(@"btn_main_pressed", 18) forState:UIControlStateHighlighted];
+    [self.mainButton setBackgroundImage:stretchH(@"setup_btn", 24) forState:UIControlStateNormal];
+    [self.mainButton setBackgroundImage:stretchH(@"setup_btn_pressed", 24) forState:UIControlStateHighlighted];
     self.mainButton.titleLabel.font = [UIFont boldSystemFontOfSize:18];
     [self.mainButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-    [self.mainButton setTitleShadowColor:[UIColor colorWithRed:0 green:0.08f blue:0.3f alpha:0.8f] forState:UIControlStateNormal];
+    [self.mainButton setTitleShadowColor:[UIColor colorWithRed:0.3f green:0.02f blue:0.04f alpha:0.8f] forState:UIControlStateNormal];
     self.mainButton.titleLabel.shadowOffset = CGSizeMake(0, -1);
     [self.mainButton addTarget:self action:@selector(nextTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:self.mainButton];
 
-    self.skipButton = barButton(L(@"Pomiń"), CGRectMake(W - 86, 10, 76, 32), self, @selector(skipTapped));
+    self.skipButton = [UIButton buttonWithType:UIButtonTypeCustom];
+    self.skipButton.frame = CGRectMake(W - cx - 96, 4, 84, 30);
     self.skipButton.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin;
+    self.skipButton.titleLabel.font = [UIFont boldSystemFontOfSize:14];
+    self.skipButton.contentHorizontalAlignment = UIControlContentHorizontalAlignmentRight;
+    [self.skipButton setTitle:L(@"Pomiń") forState:UIControlStateNormal];
+    [self.skipButton setTitleColor:[UIColor colorWithRed:200 / 255.0f green:222 / 255.0f blue:1.0f alpha:1.0f] forState:UIControlStateNormal];
+    [self.skipButton setTitleColor:[UIColor whiteColor] forState:UIControlStateHighlighted];
+    [self.skipButton addTarget:self action:@selector(skipTapped) forControlEvents:UIControlEventTouchUpInside];
+    [self reg:self.skipButton key:@"Pomiń" kind:kRegTitle];
     [self.view addSubview:self.skipButton];
 
     NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
@@ -160,111 +230,196 @@ static UIImageView *glassPanel(CGRect frame)
 
 - (void)dealloc { [[NSNotificationCenter defaultCenter] removeObserver:self]; }
 
-- (void)buildWelcome:(CGRect)f extra:(CGFloat)e
+- (BOOL)compact { return self.view.bounds.size.height < 500.0f; }
+
+/* 0: wybór języka (kółko UIPickerView) */
+- (void)buildLanguage:(CGRect)f
 {
     UIView *p = [[UIView alloc] initWithFrame:f];
-    CGFloat W = f.size.width;
-    UIImageView *icon = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"setup_icon"]];
-    icon.frame = CGRectMake((W - 110) / 2.0f, 40 + e * 0.6f, 110, 110);
-    [p addSubview:icon];
-    CGFloat y = 168 + e;
-    [p addSubview:makeLabel(L(@"Witaj w nSat"), CGRectMake(0, y, W, 36), 28, YES, softWhite(), NSTextAlignmentCenter)];
-    [p addSubview:makeLabel(L(@"Czytnik playlist M3U i M3U8"), CGRectMake(0, y + 40, W, 22), 16, NO, softBlue(), NSTextAlignmentCenter)];
-    [p addSubview:makeLabel(L(@"kanały z ikonami, ulubione, odtwarzanie"), CGRectMake(0, y + 64, W, 20), 13, NO, softBlue(), NSTextAlignmentCenter)];
-    UIImageView *panel = glassPanel(CGRectMake(24, y + 100, W - 48, 62));
-    [p addSubview:panel];
-    [p addSubview:makeLabel(L(@"Do startu potrzebujesz tylko\nadresu swojej playlisty"), CGRectMake(24, y + 108, W - 48, 46), 15, YES, softWhite(), NSTextAlignmentCenter)];
+    CGFloat W = f.size.width; BOOL c = [self compact];
+    UIImage *li = [UIImage imageNamed:@"setup_logo"];
+    CGFloat lw = c ? 170 : 220, lh = lw * li.size.height / li.size.width;
+    UIImageView *logo = [[UIImageView alloc] initWithImage:li];
+    logo.frame = CGRectMake((W - lw) / 2.0f, c ? 24 : 36, lw, lh);
+    [p addSubview:logo];
+    CGFloat y = CGRectGetMaxY(logo.frame) + (c ? 6 : 8);
+    [p addSubview:[self label:@"Wybierz język" frame:CGRectMake(0, y, W, 28) size:22 bold:YES color:[UIColor whiteColor] align:NSTextAlignmentCenter]];
+    [p addSubview:[self plain:@"Choose language  ·  Выберите язык" frame:CGRectMake(0, y + 28, W, 18) size:13 bold:NO color:softBlue() align:NSTextAlignmentCenter]];
+    self.picker = [[UIPickerView alloc] initWithFrame:CGRectMake((W - 260) / 2.0f, y + 56, 260, 162)];
+    self.picker.dataSource = self;
+    self.picker.delegate = self;
+    self.picker.showsSelectionIndicator = YES;
+    NSString *cur = M3UCurrentLanguage();
+    [self.picker selectRow:([cur isEqualToString:@"en"] ? 1 : ([cur isEqualToString:@"ru"] ? 2 : 0)) inComponent:0 animated:NO];
+    [p addSubview:self.picker];
+    if (!c) [p addSubview:[self label:@"Język zmienisz później w Ustawieniach" frame:CGRectMake(16, y + 56 + 162 + 12, W - 32, 18) size:11 bold:NO color:[UIColor colorWithRed:200 / 255.0f green:222 / 255.0f blue:1.0f alpha:1.0f] align:NSTextAlignmentCenter]];
     [self.pager addSubview:p];
 }
 
-- (void)buildWays:(CGRect)f extra:(CGFloat)e
+- (NSInteger)numberOfComponentsInPickerView:(UIPickerView *)pv { return 1; }
+- (NSInteger)pickerView:(UIPickerView *)pv numberOfRowsInComponent:(NSInteger)c { return 3; }
+- (NSString *)pickerView:(UIPickerView *)pv titleForRow:(NSInteger)row forComponent:(NSInteger)c
+{
+    return row == 0 ? @"Polski" : (row == 1 ? @"English" : @"Русский");
+}
+- (void)pickerView:(UIPickerView *)pv didSelectRow:(NSInteger)row inComponent:(NSInteger)c
+{
+    M3USetLanguageQuiet(row == 0 ? @"pl" : (row == 1 ? @"en" : @"ru"));
+    [self refreshTexts];
+}
+
+/* Po wyborze języka odświeżamy wszystkie napisy na pozostałych ekranach. */
+- (void)refreshTexts
+{
+    for (NSArray *r in self.regs) {
+        UIView *v = [r objectAtIndex:0];
+        NSString *key = [r objectAtIndex:1];
+        int kind = [[r objectAtIndex:2] intValue];
+        if (kind == kRegText) ((UILabel *)v).text = L(key);
+        else if (kind == kRegTitle) [(UIButton *)v setTitle:L(key) forState:UIControlStateNormal];
+        else [self setPlaceholder:L(key) forField:(UITextField *)v];
+    }
+    [self updateControls];
+}
+
+/* 1: powitanie */
+- (void)buildWelcome:(CGRect)f
 {
     UIView *p = [[UIView alloc] initWithFrame:f];
-    CGFloat W = f.size.width;
-    [p addSubview:makeLabel(L(@"Dodaj playlistę"), CGRectMake(0, 44, W, 34), 26, YES, softWhite(), NSTextAlignmentCenter)];
-    [p addSubview:makeLabel(L(@"Trzy sposoby, wybierz jeden"), CGRectMake(0, 80, W, 20), 14, NO, softBlue(), NSTextAlignmentCenter)];
+    CGFloat W = f.size.width; BOOL c = [self compact];
+    UIImage *li = [UIImage imageNamed:@"setup_logo"];
+    CGFloat lw = c ? 270 : 300, lh = lw * li.size.height / li.size.width;
+    CGFloat extra = (self.view.bounds.size.height > 560.0f) ? MIN(80.0f, (self.view.bounds.size.height - 548.0f) * 0.3f) : 0;
+    UIImageView *logo = [[UIImageView alloc] initWithImage:li];
+    logo.frame = CGRectMake((W - lw) / 2.0f, (c ? 56 : 95) + extra, lw, lh);
+    [p addSubview:logo];
+    CGFloat y = CGRectGetMaxY(logo.frame) + (c ? 12 : 44);
+    [p addSubview:[self label:@"Witaj!" frame:CGRectMake(0, y, W, 36) size:28 bold:YES color:[UIColor whiteColor] align:NSTextAlignmentCenter]];
+    [p addSubview:[self label:@"Skonfigurujemy wszystko w kilka chwil" frame:CGRectMake(20, y + 40, W - 40, 40) size:14 bold:NO color:softBlue() align:NSTextAlignmentCenter]];
+    [self.pager addSubview:p];
+}
+
+/* 2: trzy sposoby (kulki na orbicie) */
+- (void)buildWays:(CGRect)f
+{
+    UIView *p = [[UIView alloc] initWithFrame:f];
+    CGFloat W = f.size.width; BOOL c = [self compact];
+    UIImage *ii = [UIImage imageNamed:@"setup_info"];
+    UIImageView *info = [[UIImageView alloc] initWithImage:ii];
+    info.frame = CGRectMake((W - ii.size.width) / 2.0f, c ? 14 : 38, ii.size.width, ii.size.height);
+    [p addSubview:info];
+    CGFloat ty = c ? 88 : 128;
+    [p addSubview:[self label:@"Dodaj playlistę" frame:CGRectMake(0, ty, W, 28) size:22 bold:YES color:[UIColor whiteColor] align:NSTextAlignmentCenter]];
+    [p addSubview:[self label:@"Trzy sposoby, wybierz jeden" frame:CGRectMake(0, ty + 28, W, 18) size:13 bold:NO color:softBlue() align:NSTextAlignmentCenter]];
     NSArray *items = [NSArray arrayWithObjects:
-        [NSArray arrayWithObjects:L(@"Adres z internetu"), L(@"wklej link do pliku .m3u lub .m3u8"), nil],
-        [NSArray arrayWithObjects:L(@"Schowek"), L(@"jedno dotknięcie, jeśli już skopiowałeś link"), nil],
-        [NSArray arrayWithObjects:L(@"Plik w aplikacji"), L(@"wyślij plik przez „Otwórz w…” albo iTunes"), nil], nil];
-    CGFloat cardH = 72.0f, gap = 8.0f + e * 0.3f, y = 112 + e * 0.3f;
+        [NSArray arrayWithObjects:@"Adres z internetu", @"wklej link do pliku .m3u lub .m3u8", nil],
+        [NSArray arrayWithObjects:@"Schowek", @"jedno dotknięcie, jeśli już skopiowałeś link", nil],
+        [NSArray arrayWithObjects:@"Plik w aplikacji", @"wyślij plik przez „Otwórz w…” albo iTunes", nil], nil];
+    CGFloat X = 46, y0 = c ? 186 : 232, dy = c ? 72 : 85;
+    CAShapeLayer *line = [CAShapeLayer layer];                   /* przerywana linia orbity między kulkami */
+    UIBezierPath *path = [UIBezierPath bezierPath];
+    [path moveToPoint:CGPointMake(X, y0 + 21)];
+    [path addLineToPoint:CGPointMake(X, y0 + 2 * dy - 21)];
+    line.path = path.CGPath;
+    line.strokeColor = [UIColor colorWithRed:150 / 255.0f green:200 / 255.0f blue:1.0f alpha:0.8f].CGColor;
+    line.fillColor = nil;
+    line.lineWidth = 1.5f;
+    line.lineDashPattern = [NSArray arrayWithObjects:[NSNumber numberWithInt:5], [NSNumber numberWithInt:6], nil];
+    [p.layer addSublayer:line];
     for (NSUInteger i = 0; i < 3; i++) {
-        [p addSubview:glassPanel(CGRectMake(16, y, W - 32, cardH))];
-        UILabel *num = makeLabel([NSString stringWithFormat:@"%d", (int)i + 1], CGRectMake(30, y + 16, 40, 40), 24, YES, softWhite(), NSTextAlignmentCenter);
-        num.backgroundColor = [UIColor colorWithRed:0.27f green:0.52f blue:0.92f alpha:1.0f];
-        num.layer.cornerRadius = 10.0f;
-        num.layer.borderWidth = 1.0f;
-        num.layer.borderColor = [UIColor colorWithRed:0.02f green:0.08f blue:0.27f alpha:1.0f].CGColor;
-        [p addSubview:num];
+        CGFloat y = y0 + i * dy;
+        UIImageView *sp = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"setup_sphere"]];
+        sp.frame = CGRectMake(X - 23, y - 23, 46, 46);
+        [p addSubview:sp];
+        UILabel *n = [self plain:[NSString stringWithFormat:@"%d", (int)i + 1] frame:CGRectMake(X - 23, y - 12, 46, 22) size:17 bold:YES color:[UIColor whiteColor] align:NSTextAlignmentCenter];
+        [p addSubview:n];
         NSArray *it = [items objectAtIndex:i];
-        [p addSubview:makeLabel([it objectAtIndex:0], CGRectMake(82, y + 12, W - 104, 22), 17, YES, softWhite(), NSTextAlignmentLeft)];
-        UILabel *sub = makeLabel([it objectAtIndex:1], CGRectMake(82, y + 36, W - 104, 30), 12, NO, softBlue(), NSTextAlignmentLeft);
-        [p addSubview:sub];
-        y += cardH + gap;
+        [p addSubview:[self label:[it objectAtIndex:0] frame:CGRectMake(76, y - 19, W - 92, 22) size:16 bold:YES color:[UIColor whiteColor] align:NSTextAlignmentLeft]];
+        [p addSubview:[self label:[it objectAtIndex:1] frame:CGRectMake(76, y + 4, W - 92, 32) size:12 bold:NO color:softBlue() align:NSTextAlignmentLeft]];
     }
     [self.pager addSubview:p];
 }
 
-- (void)buildForm:(CGRect)f extra:(CGFloat)e
+/* 3: formularz */
+- (void)buildForm:(CGRect)f
 {
     UIView *p = [[UIView alloc] initWithFrame:f];
-    CGFloat W = f.size.width;
-    UIImageView *icon = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"setup_icon"]];
-    icon.frame = CGRectMake((W - 60) / 2.0f, 36 + e * 0.2f, 60, 60);
-    [p addSubview:icon];
-    CGFloat y0 = 104 + e * 0.2f;
-    [p addSubview:makeLabel(L(@"Konfiguracja nSat"), CGRectMake(0, y0, W, 30), 22, YES, softWhite(), NSTextAlignmentCenter)];
-    [p addSubview:makeLabel(L(@"Dodaj swoją pierwszą playlistę"), CGRectMake(0, y0 + 32, W, 18), 13, NO, softBlue(), NSTextAlignmentCenter)];
-    CGFloat py = y0 + 60;
-    [p addSubview:glassPanel(CGRectMake(14, py, W - 28, 186))];
-    [p addSubview:makeLabel(L(@"NAZWA"), CGRectMake(28, py + 8, W - 56, 16), 11, YES, softBlue(), NSTextAlignmentLeft)];
-    self.nameField = [self makeField:L(@"np. Moja telewizja") frame:CGRectMake(26, py + 26, W - 52, 32)];
+    CGFloat W = f.size.width; BOOL c = [self compact];
+    UIImage *li = [UIImage imageNamed:@"setup_logo"];
+    CGFloat lw = c ? 110 : 180, lh = lw * li.size.height / li.size.width;
+    UIImageView *logo = [[UIImageView alloc] initWithImage:li];
+    logo.frame = CGRectMake((W - lw) / 2.0f, c ? 26 : 36, lw, lh);
+    [p addSubview:logo];
+    CGFloat ty = CGRectGetMaxY(logo.frame) + (c ? 4 : 8);
+    [p addSubview:[self label:@"Dodaj swoją pierwszą playlistę" frame:CGRectMake(10, ty, W - 20, 24) size:18 bold:YES color:[UIColor whiteColor] align:NSTextAlignmentCenter]];
+    [p addSubview:[self label:@"Nazwę możesz zmienić później" frame:CGRectMake(0, ty + 26, W, 16) size:12 bold:NO color:softBlue() align:NSTextAlignmentCenter]];
+    CGFloat cy = ty + (c ? 52 : 58), fh = c ? 38 : 43, step = c ? 62 : 80;
+    CGFloat ch = (c ? 26 : 32) + fh * 2 + (step - fh) + (c ? 50 : 54);
+    UIImageView *card = [[UIImageView alloc] initWithImage:stretchAll(@"setup_card", 16)];
+    card.frame = CGRectMake(18, cy, W - 36, ch);
+    [p addSubview:card];
+    CGFloat fy = cy + (c ? 24 : 36);
+    [p addSubview:[self label:@"NAZWA" frame:CGRectMake(32, fy - (c ? 20 : 22), W - 64, 16) size:10 bold:YES color:[UIColor colorWithRed:150 / 255.0f green:190 / 255.0f blue:1.0f alpha:1.0f] align:NSTextAlignmentLeft]];
+    self.nameField = [self makeField:@"np. Moja telewizja" placeholder:nil frame:CGRectMake(32, fy, W - 64, fh)];
     self.nameField.autocapitalizationType = UITextAutocapitalizationTypeSentences;
     self.nameField.returnKeyType = UIReturnKeyNext;
     [p addSubview:self.nameField];
-    [p addSubview:makeLabel(L(@"ADRES PLAYLISTY (M3U / M3U8)"), CGRectMake(28, py + 66, W - 56, 16), 11, YES, softBlue(), NSTextAlignmentLeft)];
-    self.urlField = [self makeField:@"http://…" frame:CGRectMake(26, py + 84, W - 52, 32)];
+    CGFloat fy2 = fy + step;
+    [p addSubview:[self label:@"ADRES PLAYLISTY (M3U / M3U8)" frame:CGRectMake(32, fy2 - (c ? 20 : 22), W - 64, 16) size:10 bold:YES color:[UIColor colorWithRed:150 / 255.0f green:190 / 255.0f blue:1.0f alpha:1.0f] align:NSTextAlignmentLeft]];
+    self.urlField = [self makeField:nil placeholder:@"http://…" frame:CGRectMake(32, fy2, W - 64, fh)];
     self.urlField.keyboardType = UIKeyboardTypeURL;
     self.urlField.returnKeyType = UIReturnKeyDone;
     [p addSubview:self.urlField];
-    self.urlFieldBottom = py + 84 + 32;
-    [p addSubview:barButton(L(@"Wklej adres ze schowka"), CGRectMake(26, py + 132, W - 52, 40), self, @selector(pasteTapped))];
+    self.urlFieldBottom = fy2 + fh;
+    [p addSubview:[self ghostButton:@"Wklej adres ze schowka" frame:CGRectMake(32, fy2 + fh + 10, W - 64, 34) action:@selector(pasteTapped)]];
     [self.pager addSubview:p];
 }
 
-- (void)buildLayout:(CGRect)f extra:(CGFloat)e
+/* 4: wybór wyglądu */
+- (void)buildLayout:(CGRect)f
 {
     UIView *p = [[UIView alloc] initWithFrame:f];
-    CGFloat W = f.size.width;
-    [p addSubview:makeLabel(L(@"Wybierz wygląd"), CGRectMake(0, 44, W, 34), 26, YES, softWhite(), NSTextAlignmentCenter)];
-    [p addSubview:makeLabel(L(@"Zmienisz go później jednym przyciskiem"), CGRectMake(0, 80, W, 20), 13, NO, softBlue(), NSTextAlignmentCenter)];
-    CGFloat cw = (W - 44) / 2.0f, y = 116 + e * 0.3f, ch = 220;
+    CGFloat W = f.size.width; BOOL c = [self compact];
+    CGFloat ty = c ? 40 : 56;
+    [p addSubview:[self label:@"Wybierz wygląd" frame:CGRectMake(0, ty, W, 30) size:22 bold:YES color:[UIColor whiteColor] align:NSTextAlignmentCenter]];
+    [p addSubview:[self label:@"Zmienisz go później jednym przyciskiem" frame:CGRectMake(0, ty + 30, W, 18) size:13 bold:NO color:softBlue() align:NSTextAlignmentCenter]];
+    CGFloat cw = (W - 44) / 2.0f, y = c ? 108 : 115, ch = c ? 232 : 265;
     for (int i = 0; i < 2; i++) {
         UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
-        b.frame = CGRectMake(16 + i * (cw + 12), y, cw, ch);
+        b.frame = CGRectMake(18 + i * (cw + 8), y, cw, ch);
         b.tag = i;
-        [b setBackgroundImage:stretch(@"glass_panel", 14) forState:UIControlStateNormal];
-        [b setBackgroundImage:stretch(@"glass_panel_sel", 14) forState:UIControlStateSelected];
-        [b setBackgroundImage:stretch(@"glass_panel_sel", 14) forState:UIControlStateSelected | UIControlStateHighlighted];
+        [b setBackgroundImage:stretchAll(@"setup_card", 16) forState:UIControlStateNormal];
+        [b setBackgroundImage:stretchAll(@"setup_card_sel", 16) forState:UIControlStateSelected];
+        [b setBackgroundImage:stretchAll(@"setup_card_sel", 16) forState:UIControlStateSelected | UIControlStateHighlighted];
         [b addTarget:self action:@selector(layoutChosen:) forControlEvents:UIControlEventTouchUpInside];
         UIImageView *mini = [[UIImageView alloc] initWithImage:[UIImage imageNamed:i == 0 ? @"setup_list" : @"setup_grid"]];
         mini.frame = CGRectMake((cw - 110) / 2.0f, 14, 110, 150);
         mini.userInteractionEnabled = NO;
         [b addSubview:mini];
-        UILabel *l = makeLabel(i == 0 ? L(@"Lista") : L(@"Kafelki"), CGRectMake(0, 176, cw, 30), 17, YES, softWhite(), NSTextAlignmentCenter);
+        UILabel *l = [self label:(i == 0 ? @"Lista" : @"Kafelki") frame:CGRectMake(0, ch - 54, cw, 24) size:16 bold:YES color:[UIColor whiteColor] align:NSTextAlignmentCenter];
         l.userInteractionEnabled = NO;
         [b addSubview:l];
+        UIView *r = [self radio:CGPointMake(cw / 2.0f, ch - 20)];
+        [b addSubview:r];
         [p addSubview:b];
-        if (i == 0) self.listChoice = b; else self.gridChoice = b;
+        if (i == 0) { self.listChoice = b; self.listRadio = r; } else { self.gridChoice = b; self.gridRadio = r; }
     }
     [self.pager addSubview:p];
     [self updateLayoutChoice];
+}
+
+- (void)styleRadio:(UIView *)r on:(BOOL)on
+{
+    r.layer.borderColor = (on ? coral() : [UIColor colorWithRed:170 / 255.0f green:200 / 255.0f blue:1.0f alpha:0.65f]).CGColor;
+    [r viewWithTag:7].hidden = !on;
 }
 
 - (void)updateLayoutChoice
 {
     self.listChoice.selected = !self.gridSelected;
     self.gridChoice.selected = self.gridSelected;
+    [self styleRadio:self.listRadio on:!self.gridSelected];
+    [self styleRadio:self.gridRadio on:self.gridSelected];
 }
 
 - (void)layoutChosen:(UIButton *)b
@@ -277,7 +432,14 @@ static UIImageView *glassPanel(CGRect frame)
 
 - (void)updateControls
 {
-    self.dots.currentPage = self.page;
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    for (NSInteger i = 0; i < (NSInteger)[self.segments count]; i++) {
+        CALayer *s = [self.segments objectAtIndex:(NSUInteger)i];
+        s.backgroundColor = (i <= self.page ? coral() : [UIColor colorWithWhite:1.0f alpha:0.2f]).CGColor;
+    }
+    [CATransaction commit];
+    self.skipButton.hidden = (self.page == 0 || self.page == kPages - 1);          /* na wyborze języka i na końcu „Pomiń” nie ma */
     [self.mainButton setTitle:(self.page == kPages - 1 ? L(@"Zaczynamy!") : L(@"Dalej")) forState:UIControlStateNormal];
 }
 
@@ -325,7 +487,7 @@ static UIImageView *glassPanel(CGRect frame)
 
 - (void)nextTapped
 {
-    if (self.page == 2) {                                         /* formularz: sprawdzamy adres przed pójściem dalej */
+    if (self.page == kFormPage) {                                 /* formularz: sprawdzamy adres przed pójściem dalej */
         BOOL invalid = NO;
         [self playlistFromForm:&invalid];
         if (invalid) { [self alert:L(@"Adres musi zaczynać się od http:// lub https://")]; return; }
@@ -333,7 +495,7 @@ static UIImageView *glassPanel(CGRect frame)
     if (self.page < kPages - 1) { [self goToPage:self.page + 1]; return; }
     BOOL invalid = NO;
     NSDictionary *pl = [self playlistFromForm:&invalid];
-    if (invalid) { [self alert:L(@"Adres playlisty musi zaczynać się od http:// lub https://")]; [self goToPage:2]; return; }
+    if (invalid) { [self alert:L(@"Adres playlisty musi zaczynać się od http:// lub https://")]; [self goToPage:kFormPage]; return; }
     [[NSUserDefaults standardUserDefaults] setBool:self.gridSelected forKey:kLayoutKey];
     [self finishWithPlaylist:pl];
 }
@@ -368,6 +530,9 @@ static UIImageView *glassPanel(CGRect frame)
 
 #pragma mark - Pola tekstowe i klawiatura
 
+- (void)textFieldDidBeginEditing:(UITextField *)f { f.background = stretchAll(@"setup_field_focus", 14); }
+- (void)textFieldDidEndEditing:(UITextField *)f { f.background = stretchAll(@"setup_field", 14); }
+
 - (BOOL)textFieldShouldReturn:(UITextField *)f
 {
     if (f == self.nameField) [self.urlField becomeFirstResponder];
@@ -377,7 +542,7 @@ static UIImageView *glassPanel(CGRect frame)
 
 - (void)keyboardWillShow:(NSNotification *)n
 {
-    if (self.page != 2) return;
+    if (self.page != kFormPage) return;
     CGRect kb = [[[n userInfo] objectForKey:UIKeyboardFrameEndUserInfoKey] CGRectValue];
     CGFloat H = self.view.bounds.size.height;
     CGFloat shift = (self.urlFieldBottom + 12.0f) - (H - kb.size.height);

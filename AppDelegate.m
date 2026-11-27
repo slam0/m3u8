@@ -14,13 +14,16 @@
 @property (nonatomic, strong) UINavigationController *nav;
 @end
 
+static NSString *gLaunchLanguage;                 /* język z chwili startu: po zmianie na ekranie konfiguracji przebudowujemy ekrany */
+
 @implementation AppDelegate
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
     M3UDiagInstall();
+    gLaunchLanguage = M3UCurrentLanguage();
     NSString *crash = M3UDiagCrashReportIfAny();
-    M3UBreadcrumb(@"start aplikacji 1.14.0");
+    M3UBreadcrumb(@"start aplikacji 1.17.0");
     M3UDiagMarkRunning(YES);
     M3UThemeApply();
     [application setStatusBarStyle:UIStatusBarStyleBlackOpaque];
@@ -86,6 +89,16 @@
         [list addObject:playlist];
         M3USavePlaylists(list);
         [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UPlaylistsChanged" object:nil];
+    }
+    BOOL langChanged = ![M3UCurrentLanguage() isEqualToString:gLaunchLanguage];
+    if (langChanged) {
+        /* język wybrany na ekranie konfiguracji: budujemy ekrany od nowa w tym języku (to też zamyka konfigurację) */
+        gLaunchLanguage = M3UCurrentLanguage();
+        self.window.rootViewController = [self buildRootShowingSettings:NO];
+        if (playlist) [self.nav pushViewController:[[M3UChannelsController alloc] initWithPlaylist:playlist] animated:NO];
+        return;
+    }
+    if (playlist) {
         /* od razu pokazujemy kanały nowej playlisty (pod spodem, zanim zniknie ekran konfiguracji) */
         [self.nav pushViewController:[[M3UChannelsController alloc] initWithPlaylist:playlist] animated:NO];
     }

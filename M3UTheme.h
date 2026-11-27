@@ -14,6 +14,7 @@ CGSize M3UShadowOffset(void);
 UIColor *M3UPanelColor(CGFloat alpha);             /* tło paska bocznego/dolnego */
 UIColor *M3UPanelEdgeColor(void);
 UIImage *M3USelectionImage(BOOL tab);              /* zaznaczenie pozycji paska */
+UIView *M3UBackdropViewNSat(CGRect frame);         /* tło motywu nSat niezależnie od wybranego motywu (ekran konfiguracji) */
 UIView *M3UBackdropViewBlue(CGRect frame);         /* zawsze niebieskie tło (ekran startowy) */
 void M3UPlayerPalette(int slot, CGFloat *top, CGFloat *bot);  /* kolory odtwarzacza: 0 nagłówek, 1 akcent, 2 zaznaczenie */
 UIColor *M3UThemeTint(void);                        /* kolor suwaków i przełączników */

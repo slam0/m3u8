@@ -195,6 +195,7 @@ void M3UPlayerPalette(int slot, CGFloat *top, CGFloat *bot)
 /* Tło całego ekranu. Niebieski: obraz z błyskiem. Pozostałe motywy: rysowane kodem (gradient, szczotkowany metal, prążki systemowe). */
 @interface M3UBackdrop : UIView
 @property (nonatomic) BOOL forceBlue;
+@property (nonatomic) BOOL forceNSat;
 @end
 
 static UIImage *gradientImage(CGFloat h, const CGFloat *t, const CGFloat *b, BOOL glow)
@@ -308,7 +309,7 @@ static UIImage *brushedTile(void)
 {
     [super layoutSubviews];
     CGFloat bw = self.bounds.size.width, bh = self.bounds.size.height;
-    NSInteger t = self.forceBlue ? 0 : M3UThemeIndex();
+    NSInteger t = self.forceNSat ? 5 : (self.forceBlue ? 0 : M3UThemeIndex());
     if (t == 5) {                                               /* nSat: granat, poświata i ukośne pasy u dołu */
         _tex.hidden = YES;
         _pic.hidden = NO;
@@ -378,6 +379,13 @@ UIView *M3UBackdropViewBlue(CGRect frame)
 {
     M3UBackdrop *b = [[M3UBackdrop alloc] initWithFrame:frame];
     b.forceBlue = YES;
+    return b;
+}
+
+UIView *M3UBackdropViewNSat(CGRect frame)
+{
+    M3UBackdrop *b = [[M3UBackdrop alloc] initWithFrame:frame];
+    b.forceNSat = YES;
     return b;
 }
 

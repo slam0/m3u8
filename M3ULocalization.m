@@ -5,6 +5,21 @@ static NSString *const kLangKey = @"language";
 
 /* { polski, angielski, rosyjski } */
 static const char *const kRows[][3] = {
+    { "Wybierz język",
+      "Choose language",
+      "Выберите язык" },
+    { "Witaj!",
+      "Welcome!",
+      "Добро пожаловать!" },
+    { "Skonfigurujemy wszystko w kilka chwil",
+      "We'll set everything up in a few moments",
+      "Настроим всё за несколько минут" },
+    { "Język zmienisz później w Ustawieniach",
+      "You can change the language later in Settings",
+      "Язык можно изменить позже в настройках" },
+    { "Nazwę możesz zmienić później",
+      "You can change the name later",
+      "Название можно изменить позже" },
     { "Adres musi zaczynać się od http:// lub https://",
       "The address must start with http:// or https://",
       "Адрес должен начинаться с http:// или https://" },
@@ -507,6 +522,12 @@ void M3USetLanguage(NSString *code)
     [[NSUserDefaults standardUserDefaults] setObject:code forKey:kLangKey];
     [[NSUserDefaults standardUserDefaults] synchronize];
     [[NSNotificationCenter defaultCenter] postNotificationName:M3ULanguageDidChange object:nil];
+}
+
+void M3USetLanguageQuiet(NSString *code)
+{
+    [[NSUserDefaults standardUserDefaults] setObject:code forKey:kLangKey];
+    [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
 NSString *M3ULocalize(NSString *polish)
