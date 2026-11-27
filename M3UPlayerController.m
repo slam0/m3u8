@@ -17,20 +17,86 @@ static UIImage *playIcon(BOOL pause)
     CGFloat s = 28.0f;
     UIGraphicsBeginImageContextWithOptions(CGSizeMake(s, s), NO, [[UIScreen mainScreen] scale]);
     CGContextRef c = UIGraphicsGetCurrentContext();
-    CGContextSetRGBFillColor(c, 1, 1, 1, 1);
-    if (pause) {
-        CGContextFillRect(c, CGRectMake(6, 4, 6, 20));
-        CGContextFillRect(c, CGRectMake(16, 4, 6, 20));
-    } else {
-        CGContextMoveToPoint(c, 7, 3);
-        CGContextAddLineToPoint(c, 24, 14);
-        CGContextAddLineToPoint(c, 7, 25);
-        CGContextClosePath(c);
-        CGContextFillPath(c);
+    for (int pass = 0; pass < 2; pass++) {
+        CGFloat dy = pass == 0 ? 1.0f : 0.0f;
+        if (pass == 0) CGContextSetRGBFillColor(c, 0, 0, 0, 0.6f); else CGContextSetRGBFillColor(c, 1, 1, 1, 1);
+        if (pause) {
+            CGContextFillRect(c, CGRectMake(6, 4 + dy, 6, 20));
+            CGContextFillRect(c, CGRectMake(16, 4 + dy, 6, 20));
+        } else {
+            CGContextMoveToPoint(c, 7, 3 + dy);
+            CGContextAddLineToPoint(c, 24, 14 + dy);
+            CGContextAddLineToPoint(c, 7, 25 + dy);
+            CGContextClosePath(c);
+            CGContextFillPath(c);
+        }
     }
     UIImage *i = UIGraphicsGetImageFromCurrentImageContext();
     UIGraphicsEndImageContext();
     return i;
+}
+
+
+/* ---- wygląd w stylu iOS 6: gradienty z połyskiem rysowane kodem ---- */
+enum { GS_BLUE, GS_GRAY, GS_NAV, GS_DARK, GS_SEL, GS_STRIP, GS_TOOL };
+static void gsColors(int st, CGFloat *t, CGFloat *b, CGFloat *gloss)
+{
+    static const CGFloat tab[7][9] = {
+        { 0.47f, 0.63f, 0.88f, 0.12f, 0.31f, 0.75f, 1, 1, 0.24f },   /* niebieski przycisk */
+        { 0.51f, 0.55f, 0.63f, 0.18f, 0.20f, 0.27f, 1, 1, 0.22f },   /* szary przycisk */
+        { 0.43f, 0.53f, 0.69f, 0.20f, 0.28f, 0.44f, 1, 1, 0.22f },   /* pasek nagłówka */
+        { 0.13f, 0.14f, 0.16f, 0.00f, 0.00f, 0.00f, 0.86f, 0.90f, 0.10f },   /* czarny pasek (półprzezroczysty) */
+        { 0.35f, 0.59f, 0.94f, 0.12f, 0.33f, 0.80f, 1, 1, 0.20f },   /* zaznaczony wiersz */
+        { 0.16f, 0.19f, 0.26f, 0.09f, 0.11f, 0.17f, 1, 1, 0.08f },   /* pasek zakładek */
+        { 0.27f, 0.31f, 0.41f, 0.11f, 0.13f, 0.20f, 1, 1, 0.15f }    /* dolny pasek narzędzi */
+    };
+    const CGFloat *r = tab[st];
+    t[0] = r[0]; t[1] = r[1]; t[2] = r[2]; t[3] = r[6];
+    b[0] = r[3]; b[1] = r[4]; b[2] = r[5]; b[3] = r[7];
+    *gloss = r[8];
+}
+
+/* Obraz rozciągliwy w poziomie, o wysokości h. r = promień rogów, border = czarna ramka z jasnym wnętrzem. */
+static UIImage *glossImage(int st, CGFloat h, CGFloat r, BOOL border, BOOL pressed)
+{
+    static NSMutableDictionary *cache;
+    if (!cache) cache = [[NSMutableDictionary alloc] init];
+    NSString *key = [NSString stringWithFormat:@"%d-%g-%g-%d-%d", st, h, r, border, pressed];
+    UIImage *hit = [cache objectForKey:key];
+    if (hit) return hit;
+    CGFloat t[4], b[4], gl;
+    gsColors(st, t, b, &gl);
+    if (pressed) for (int i = 0; i < 3; i++) { t[i] *= 0.7f; b[i] *= 0.7f; }
+    CGFloat w = MAX(8.0f, 2.0f * r + 4.0f);
+    UIGraphicsBeginImageContextWithOptions(CGSizeMake(w, h), NO, [[UIScreen mainScreen] scale]);
+    CGContextRef c = UIGraphicsGetCurrentContext();
+    CGRect rc = CGRectMake(0, 0, w, h);
+    UIBezierPath *clip = [UIBezierPath bezierPathWithRoundedRect:rc cornerRadius:r];
+    CGContextSaveGState(c);
+    [clip addClip];
+    CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB();
+    CGFloat comps[8] = { t[0], t[1], t[2], t[3], b[0], b[1], b[2], b[3] };
+    CGFloat loc[2] = { 0.0f, 1.0f };
+    CGGradientRef g = CGGradientCreateWithColorComponents(cs, comps, loc, 2);
+    CGContextDrawLinearGradient(c, g, CGPointMake(0, 0), CGPointMake(0, h), 0);
+    CGGradientRelease(g);
+    CGColorSpaceRelease(cs);
+    CGContextSetRGBFillColor(c, 1, 1, 1, pressed ? gl * 0.5f : gl);
+    CGContextFillRect(c, CGRectMake(0, 0, w, h / 2.0f));              /* połysk na górnej połowie */
+    CGContextRestoreGState(c);
+    if (border) {
+        CGContextSetRGBStrokeColor(c, 1, 1, 1, 0.24f);
+        [[UIBezierPath bezierPathWithRoundedRect:CGRectInset(rc, 1.5f, 1.5f) cornerRadius:MAX(0.0f, r - 1.0f)] stroke];
+        CGContextSetRGBStrokeColor(c, 0.03f, 0.05f, 0.11f, 1);
+        CGContextSetLineWidth(c, 2.0f);
+        [[UIBezierPath bezierPathWithRoundedRect:CGRectInset(rc, 1.0f, 1.0f) cornerRadius:r] stroke];
+    }
+    UIImage *img = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    CGFloat cap = w / 2.0f - 0.5f;
+    img = [img resizableImageWithCapInsets:UIEdgeInsetsMake(0, cap, 0, cap)];
+    [cache setObject:img forKey:key];
+    return img;
 }
 
 /* Adres archiwum: ten sam adres kanału z dopiskiem utc=<początek>&lutc=<teraz> (serwer sam przelicza przesunięcie). */
@@ -47,15 +113,16 @@ static NSString *dateTimeText(double t)
     return [f stringFromDate:[NSDate dateWithTimeIntervalSince1970:t]];
 }
 
-@interface M3UPlayerController () <UITableViewDataSource, UITableViewDelegate, UIGestureRecognizerDelegate>
+@interface M3UPlayerController () <UITableViewDataSource, UITableViewDelegate>
 @property (nonatomic, strong) NSArray *entries;
 @property (nonatomic, strong) M3UEntry *current;
 @property (nonatomic, strong) MPMoviePlayerController *mp;
-@property (nonatomic, strong) UIView *edgeL, *edgeR, *catcher, *listPanel, *epgPanel, *topBar, *bar;
+@property (nonatomic, strong) UIView *edgeL, *edgeR, *catcher, *listPanel, *epgPanel, *topBar, *bar, *touchLayer, *listEdge, *epgEdge, *dayStrip, *epgTool, *tabBox, *liveDot;
 @property (nonatomic, strong) UITableView *listTable, *epgTable;
 @property (nonatomic, strong) UILabel *epgHeader, *epgEmpty, *toast;
 @property (nonatomic, strong) UILabel *barTitle, *barBadge, *barProg, *loLabel, *hiLabel, *knobLabel;
 @property (nonatomic, strong) UISlider *slider;
+@property (nonatomic, strong) UIImageView *topBg, *barBg;
 @property (nonatomic, strong) UIButton *closeButton, *backBtn, *fwdBtn, *playBtn, *liveBtn, *pickBtn;
 @property (nonatomic, strong) NSArray *dayTabs;
 @property (nonatomic, strong) UIActivityIndicatorView *spinner;
@@ -100,23 +167,40 @@ M3U_ROTATE_ANY
 - (UIView *)darkPanel
 {
     UIView *p = [[UIView alloc] initWithFrame:CGRectZero];
-    p.backgroundColor = [UIColor colorWithRed:0.016f green:0.055f blue:0.17f alpha:0.92f];
+    p.backgroundColor = [UIColor colorWithRed:0.055f green:0.07f blue:0.12f alpha:0.93f];
     p.hidden = YES;
-    p.layer.borderColor = [UIColor colorWithRed:0.59f green:0.75f blue:1.0f alpha:0.55f].CGColor;
-    p.layer.borderWidth = 1.0f;
     return p;
 }
 
+- (UIView *)edgeLineIn:(UIView *)panel
+{
+    UIView *l = [[UIView alloc] initWithFrame:CGRectZero];
+    l.backgroundColor = [UIColor blackColor];
+    UIView *h = [[UIView alloc] initWithFrame:CGRectZero];
+    h.tag = 5;
+    h.backgroundColor = [UIColor colorWithWhite:1.0f alpha:0.16f];
+    [l addSubview:h];
+    [panel addSubview:l];
+    return l;
+}
+
+/* Pasek nagłówka jak UINavigationBar z iOS 6: stalowy gradient z połyskiem, tytuł z cieniem. */
 - (UILabel *)headerIn:(UIView *)panel text:(NSString *)t
 {
-    UIView *bar = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 10, 54)];
-    bar.backgroundColor = [UIColor colorWithRed:0.04f green:0.12f blue:0.31f alpha:1.0f];
+    UIImageView *bar = [[UIImageView alloc] initWithImage:glossImage(GS_NAV, 56.0f, 0, NO, NO)];
+    bar.frame = CGRectMake(0, 0, 10, 56);
     bar.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     [panel addSubview:bar];
-    UILabel *l = [[UILabel alloc] initWithFrame:CGRectMake(16, 0, 280, 54)];
+    UIView *line = [[UIView alloc] initWithFrame:CGRectMake(0, 55, 10, 1)];
+    line.backgroundColor = [UIColor colorWithRed:0.03f green:0.07f blue:0.16f alpha:1.0f];
+    line.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+    [panel addSubview:line];
+    UILabel *l = [[UILabel alloc] initWithFrame:CGRectMake(16, 0, 280, 56)];
     l.backgroundColor = [UIColor clearColor];
-    l.textColor = M3UTextColor();
-    l.font = [UIFont boldSystemFontOfSize:20.0f];
+    l.textColor = [UIColor whiteColor];
+    l.shadowColor = [UIColor colorWithWhite:0 alpha:0.75f];
+    l.shadowOffset = CGSizeMake(0, -1);
+    l.font = [UIFont boldSystemFontOfSize:21.0f];
     l.lineBreakMode = NSLineBreakByTruncatingTail;
     l.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     l.text = t;
@@ -128,7 +212,7 @@ M3U_ROTATE_ANY
 {
     UITableView *t = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
     t.backgroundColor = [UIColor clearColor];
-    t.separatorColor = [UIColor colorWithWhite:1.0f alpha:0.12f];
+    t.separatorColor = [UIColor blackColor];
     t.dataSource = self;
     t.delegate = self;
     t.rowHeight = kRow;
@@ -144,16 +228,17 @@ M3U_ROTATE_ANY
     return g;
 }
 
-- (UIButton *)barButton:(NSString *)title action:(SEL)a hi:(BOOL)hi
+/* Szklany przycisk w stylu iOS 6 (niebieski lub szary) o wysokości h. */
+- (UIButton *)glossButton:(NSString *)title style:(int)st h:(CGFloat)h radius:(CGFloat)r border:(BOOL)border size:(CGFloat)size action:(SEL)a
 {
     UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
-    b.backgroundColor = hi ? [UIColor colorWithRed:0.20f green:0.47f blue:0.94f alpha:1.0f] : [UIColor colorWithRed:0.16f green:0.27f blue:0.55f alpha:1.0f];
-    b.layer.cornerRadius = 9.0f;
-    b.layer.borderWidth = 2.0f;
-    b.layer.borderColor = [UIColor colorWithRed:0.59f green:0.75f blue:1.0f alpha:0.8f].CGColor;
-    b.titleLabel.font = [UIFont boldSystemFontOfSize:16.0f];
+    [b setBackgroundImage:glossImage(st, h, r, border, NO) forState:UIControlStateNormal];
+    [b setBackgroundImage:glossImage(st, h, r, border, YES) forState:UIControlStateHighlighted];
+    b.titleLabel.font = [UIFont boldSystemFontOfSize:size];
+    b.titleLabel.shadowOffset = CGSizeMake(0, -1);
+    [b setTitleShadowColor:[UIColor colorWithWhite:0 alpha:0.6f] forState:UIControlStateNormal];
     [b setTitle:title forState:UIControlStateNormal];
-    [b setTitleColor:M3UTextColor() forState:UIControlStateNormal];
+    [b setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
     [b addTarget:self action:a forControlEvents:UIControlEventTouchUpInside];
     return b;
 }
@@ -167,6 +252,12 @@ M3U_ROTATE_ANY
     l.textAlignment = al;
     l.lineBreakMode = NSLineBreakByTruncatingTail;
     return l;
+}
+
+- (UIImageView *)stripImage:(int)st h:(CGFloat)h
+{
+    UIImageView *v = [[UIImageView alloc] initWithImage:glossImage(st, h, 0, NO, NO)];
+    return v;
 }
 
 - (void)viewDidLoad
@@ -184,15 +275,18 @@ M3U_ROTATE_ANY
     [self.view addSubview:mp.view];
     self.mp = mp;
 
-    UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(videoTapped)];
-    tap.cancelsTouchesInView = NO;
-    tap.delegate = self;
-    [self.view addGestureRecognizer:tap];
-    [self swipe:UISwipeGestureRecognizerDirectionUp on:self.view action:@selector(nextChannel)].delegate = self;
-    [self swipe:UISwipeGestureRecognizerDirectionDown on:self.view action:@selector(prevChannel)].delegate = self;
+    /* warstwa dotyku nad obrazem: odtwarzacz sam połyka dotknięcia, więc nasłuchujemy tutaj */
+    self.touchLayer = [[UIView alloc] initWithFrame:self.view.bounds];
+    self.touchLayer.backgroundColor = [UIColor clearColor];
+    self.touchLayer.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [self.touchLayer addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(videoTapped)]];
+    [self swipe:UISwipeGestureRecognizerDirectionUp on:self.touchLayer action:@selector(nextChannel)];
+    [self swipe:UISwipeGestureRecognizerDirectionDown on:self.touchLayer action:@selector(prevChannel)];
+    [self.view addSubview:self.touchLayer];
 
     self.spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
     self.spinner.hidesWhenStopped = YES;
+    self.spinner.userInteractionEnabled = NO;
     [self.view addSubview:self.spinner];
 
     /* paski przy krawędziach: od nich zaczyna się przesunięcie (w poziomie) */
@@ -205,7 +299,7 @@ M3U_ROTATE_ANY
 
     /* przyciemnienie: dotknięcie poza panelem go zamyka */
     self.catcher = [[UIView alloc] initWithFrame:CGRectZero];
-    self.catcher.backgroundColor = [UIColor colorWithWhite:0 alpha:0.25f];
+    self.catcher.backgroundColor = [UIColor colorWithWhite:0 alpha:0.30f];
     self.catcher.hidden = YES;
     [self.catcher addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(closePanels)]];
     [self.view addSubview:self.catcher];
@@ -214,22 +308,29 @@ M3U_ROTATE_ANY
     self.listPanel = [self darkPanel];
     [self headerIn:self.listPanel text:L(@"Kanały")];
     self.listTable = [self tableIn:self.listPanel];
+    self.listEdge = [self edgeLineIn:self.listPanel];
     [self swipe:UISwipeGestureRecognizerDirectionRight on:self.listPanel action:@selector(closePanels)];
     [self.view addSubview:self.listPanel];
 
     /* program i archiwum (z lewej) */
     self.epgPanel = [self darkPanel];
-    self.epgHeader = [self headerIn:self.epgPanel text:L(@"Program")];
     self.epgTable = [self tableIn:self.epgPanel];
+    self.dayStrip = [self stripImage:GS_STRIP h:48.0f];
+    [self.epgPanel addSubview:self.dayStrip];
+    self.epgHeader = [self headerIn:self.epgPanel text:L(@"Program")];
+    self.tabBox = [[UIView alloc] initWithFrame:CGRectZero];
+    self.tabBox.layer.cornerRadius = 7.0f;
+    self.tabBox.layer.borderWidth = 2.0f;
+    self.tabBox.layer.borderColor = [UIColor colorWithRed:0.03f green:0.05f blue:0.11f alpha:1.0f].CGColor;
+    self.tabBox.clipsToBounds = YES;
+    self.tabBox.backgroundColor = [UIColor blackColor];
+    [self.epgPanel addSubview:self.tabBox];
     NSMutableArray *tabs = [NSMutableArray array];
     NSArray *tn = [NSArray arrayWithObjects:L(@"Wczoraj"), L(@"Dziś"), L(@"Jutro"), nil];
     for (NSInteger i = 0; i < 3; i++) {
-        UIButton *b = [self barButton:[tn objectAtIndex:(NSUInteger)i] action:@selector(dayTapped:) hi:NO];
+        UIButton *b = [self glossButton:[tn objectAtIndex:(NSUInteger)i] style:GS_GRAY h:26.0f radius:0 border:NO size:15.0f action:@selector(dayTapped:)];
         b.tag = i;
-        b.layer.cornerRadius = 8.0f;
-        b.layer.borderWidth = 1.0f;
-        b.titleLabel.font = [UIFont boldSystemFontOfSize:15.0f];
-        [self.epgPanel addSubview:b];
+        [self.tabBox addSubview:b];
         [tabs addObject:b];
     }
     self.dayTabs = tabs;
@@ -237,51 +338,70 @@ M3U_ROTATE_ANY
     self.epgEmpty.numberOfLines = 0;
     self.epgEmpty.text = L(@"Brak programu dla tego kanału.");
     [self.epgPanel addSubview:self.epgEmpty];
-    self.pickBtn = [self barButton:L(@"Wybierz dzień i godzinę") action:@selector(showPicker) hi:NO];
+    self.epgTool = [self stripImage:GS_TOOL h:68.0f];
+    [self.epgPanel addSubview:self.epgTool];
+    self.pickBtn = [self glossButton:L(@"Wybierz dzień i godzinę") style:GS_GRAY h:46.0f radius:9.0f border:YES size:17.0f action:@selector(showPicker)];
     [self.epgPanel addSubview:self.pickBtn];
+    self.epgEdge = [self edgeLineIn:self.epgPanel];
     [self swipe:UISwipeGestureRecognizerDirectionLeft on:self.epgPanel action:@selector(closePanels)];
     [self.view addSubview:self.epgPanel];
 
-    /* przycisk zamknięcia */
-    self.topBar = [[UIView alloc] initWithFrame:CGRectMake(16, 16, 96, 40)];
-    self.topBar.backgroundColor = [UIColor colorWithWhite:0 alpha:0.55f];
-    self.topBar.layer.cornerRadius = 10.0f;
-    self.closeButton = [UIButton buttonWithType:UIButtonTypeCustom];
-    self.closeButton.frame = self.topBar.bounds;
-    [self.closeButton setTitle:L(@"Zamknij") forState:UIControlStateNormal];
-    self.closeButton.titleLabel.font = [UIFont boldSystemFontOfSize:17.0f];
-    [self.closeButton setTitleColor:M3UTextColor() forState:UIControlStateNormal];
-    [self.closeButton addTarget:self action:@selector(closePlayer) forControlEvents:UIControlEventTouchUpInside];
+    /* górny pasek: Zamknij, nazwa kanału, NA ŻYWO z migającą kropką / ARCHIWUM */
+    self.topBar = [[UIView alloc] initWithFrame:CGRectZero];
+    self.topBg = [self stripImage:GS_DARK h:48.0f];
+    self.topBg.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+    [self.topBar addSubview:self.topBg];
+    self.closeButton = [self glossButton:L(@"Zamknij") style:GS_BLUE h:32.0f radius:7.0f border:YES size:15.0f action:@selector(closePlayer)];
     [self.topBar addSubview:self.closeButton];
-    [self.view addSubview:self.topBar];
-
-    /* dolny pasek: kanał, etykieta (na żywo / archiwum), audycja, oś czasu, przyciski */
-    self.bar = [[UIView alloc] initWithFrame:CGRectZero];
-    self.bar.backgroundColor = [UIColor colorWithWhite:0 alpha:0.70f];
-    self.bar.layer.cornerRadius = 14.0f;
-    self.barTitle = [self smallLabel:19.0f color:M3UTextColor() align:NSTextAlignmentLeft];
+    self.barTitle = [self smallLabel:19.0f color:[UIColor whiteColor] align:NSTextAlignmentLeft];
     self.barTitle.font = [UIFont boldSystemFontOfSize:19.0f];
+    self.barTitle.shadowColor = [UIColor colorWithWhite:0 alpha:0.8f];
+    self.barTitle.shadowOffset = CGSizeMake(0, -1);
+    [self.topBar addSubview:self.barTitle];
+    self.liveDot = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 10, 10)];
+    self.liveDot.backgroundColor = [UIColor colorWithRed:1.0f green:0.12f blue:0.10f alpha:1.0f];
+    self.liveDot.layer.cornerRadius = 5.0f;
+    self.liveDot.layer.shadowColor = [UIColor redColor].CGColor;
+    self.liveDot.layer.shadowOpacity = 1.0f;
+    self.liveDot.layer.shadowRadius = 4.0f;
+    self.liveDot.layer.shadowOffset = CGSizeZero;
+    [self.topBar addSubview:self.liveDot];
     self.barBadge = [self smallLabel:14.0f color:[UIColor whiteColor] align:NSTextAlignmentCenter];
     self.barBadge.font = [UIFont boldSystemFontOfSize:14.0f];
-    self.barBadge.layer.cornerRadius = 7.0f;
+    self.barBadge.layer.cornerRadius = 6.0f;
     self.barBadge.clipsToBounds = YES;
-    self.barProg = [self smallLabel:14.0f color:M3USubtleColor() align:NSTextAlignmentLeft];
+    [self.topBar addSubview:self.barBadge];
+    [self.view addSubview:self.topBar];
+
+    /* dolny pasek: audycja, oś czasu, przyciski */
+    self.bar = [[UIView alloc] initWithFrame:CGRectZero];
+    self.barBg = [self stripImage:GS_DARK h:132.0f];
+    self.barBg.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+    [self.bar addSubview:self.barBg];
+    self.barProg = [self smallLabel:15.0f color:[UIColor whiteColor] align:NSTextAlignmentLeft];
+    self.barProg.font = [UIFont boldSystemFontOfSize:15.0f];
+    self.barProg.shadowColor = [UIColor colorWithWhite:0 alpha:0.8f];
+    self.barProg.shadowOffset = CGSizeMake(0, -1);
     self.loLabel = [self smallLabel:14.0f color:M3USubtleColor() align:NSTextAlignmentLeft];
     self.hiLabel = [self smallLabel:14.0f color:M3USubtleColor() align:NSTextAlignmentRight];
-    self.knobLabel = [self smallLabel:12.0f color:M3UTextColor() align:NSTextAlignmentCenter];
+    self.knobLabel = [self smallLabel:12.0f color:[UIColor whiteColor] align:NSTextAlignmentCenter];
     self.knobLabel.font = [UIFont boldSystemFontOfSize:12.0f];
+    self.knobLabel.backgroundColor = [UIColor colorWithWhite:0 alpha:0.8f];
+    self.knobLabel.layer.cornerRadius = 5.0f;
+    self.knobLabel.layer.borderWidth = 1.0f;
+    self.knobLabel.layer.borderColor = [UIColor colorWithWhite:1.0f alpha:0.35f].CGColor;
     self.slider = [[UISlider alloc] initWithFrame:CGRectZero];
     self.slider.minimumValue = 0.0f;
     self.slider.maximumValue = 1.0f;
     [self.slider addTarget:self action:@selector(sliderDown) forControlEvents:UIControlEventTouchDown];
     [self.slider addTarget:self action:@selector(sliderMoved) forControlEvents:UIControlEventValueChanged];
     [self.slider addTarget:self action:@selector(sliderUp) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside | UIControlEventTouchCancel];
-    self.backBtn = [self barButton:L(@"-10 min") action:@selector(skipBack) hi:NO];
-    self.fwdBtn = [self barButton:L(@"+10 min") action:@selector(skipForward) hi:NO];
-    self.liveBtn = [self barButton:L(@"Na żywo") action:@selector(goLive) hi:YES];
-    self.playBtn = [self barButton:nil action:@selector(togglePause) hi:NO];
+    self.backBtn = [self glossButton:L(@"-10 min") style:GS_GRAY h:40.0f radius:8.0f border:YES size:15.0f action:@selector(skipBack)];
+    self.fwdBtn = [self glossButton:L(@"+10 min") style:GS_GRAY h:40.0f radius:8.0f border:YES size:15.0f action:@selector(skipForward)];
+    self.liveBtn = [self glossButton:L(@"Na żywo") style:GS_BLUE h:40.0f radius:8.0f border:YES size:15.0f action:@selector(goLive)];
+    self.playBtn = [self glossButton:nil style:GS_GRAY h:40.0f radius:8.0f border:YES size:15.0f action:@selector(togglePause)];
     [self.playBtn setImage:playIcon(YES) forState:UIControlStateNormal];
-    for (UIView *v in [NSArray arrayWithObjects:self.barTitle, self.barBadge, self.barProg, self.loLabel, self.hiLabel, self.slider, self.knobLabel, self.backBtn, self.playBtn, self.fwdBtn, self.liveBtn, nil])
+    for (UIView *v in [NSArray arrayWithObjects:self.barProg, self.loLabel, self.hiLabel, self.slider, self.knobLabel, self.backBtn, self.playBtn, self.fwdBtn, self.liveBtn, nil])
         [self.bar addSubview:v];
     [self.view addSubview:self.bar];
 
@@ -298,6 +418,7 @@ M3U_ROTATE_ANY
     [nc addObserver:self selector:@selector(loadStateChanged:) name:MPMoviePlayerLoadStateDidChangeNotification object:mp];
     [nc addObserver:self selector:@selector(logoLoaded) name:M3ULogoDidLoad object:nil];
     [nc addObserver:self selector:@selector(epgUpdated) name:M3UEpgDidUpdate object:nil];
+    [nc addObserver:self selector:@selector(updateLiveDot) name:UIApplicationDidBecomeActiveNotification object:nil];
 
     self.overlayVisible = YES;
     [self playLive];
@@ -330,21 +451,30 @@ M3U_ROTATE_ANY
 - (void)layoutBar
 {
     CGRect b = self.view.bounds;
-    CGFloat cw = MIN(648.0f, b.size.width - 40.0f), ch = 156.0f;
-    self.bar.frame = CGRectMake((CGFloat)(int)((b.size.width - cw) / 2.0f), b.size.height - ch - 24.0f, cw, ch);
+    CGFloat w = b.size.width, bh = 132.0f;
+    /* górny pasek na całą szerokość */
+    self.topBar.frame = CGRectMake(0, 0, w, 48);
+    self.topBg.frame = self.topBar.bounds;
+    self.closeButton.frame = CGRectMake(8, 8, 92, 32);
+    BOOL live = !self.archiveMode;
     CGSize ts = [self.barTitle.text ?: @"" sizeWithFont:self.barTitle.font];
-    CGFloat tw = MIN(ts.width, cw * 0.5f);
-    self.barTitle.frame = CGRectMake(18, 8, tw, 24);
-    self.barBadge.frame = CGRectMake(18 + tw + 10, 11, 96, 18);
-    self.barProg.frame = CGRectMake(18, 34, cw - 36, 18);
-    self.loLabel.frame = CGRectMake(14, 76, 58, 20);
-    self.hiLabel.frame = CGRectMake(cw - 72, 76, 58, 20);
-    self.slider.frame = CGRectMake(74, 70, cw - 148, 30);
-    CGFloat bw[4] = { 74, 80, 74, 108 }, gap = 10, total = 74 + 80 + 74 + 108 + gap * 3, x = (CGFloat)(int)((cw - total) / 2.0f);
+    CGFloat tw = MIN(ts.width, w * 0.38f), dotW = live ? 18.0f : 0.0f, groupW = tw + 12.0f + dotW + 96.0f;
+    CGFloat x0 = MAX(112.0f, (CGFloat)(int)((w - groupW) / 2.0f));
+    self.barTitle.frame = CGRectMake(x0, 11, tw, 26);
+    self.liveDot.frame = CGRectMake(x0 + tw + 12.0f, 19, 10, 10);
+    self.barBadge.frame = CGRectMake(x0 + tw + 12.0f + dotW, 14, 96, 20);
+    /* dolny pasek na całą szerokość */
+    self.bar.frame = CGRectMake(0, b.size.height - bh, w, bh);
+    self.barBg.frame = self.bar.bounds;
+    self.barProg.frame = CGRectMake(18, 8, w - 36, 20);
+    self.loLabel.frame = CGRectMake(14, 50, 58, 20);
+    self.hiLabel.frame = CGRectMake(w - 72, 50, 58, 20);
+    self.slider.frame = CGRectMake(74, 45, w - 148, 30);
+    CGFloat bw[4] = { 82, 90, 82, 110 }, gap = 12, total = 82 + 90 + 82 + 110 + gap * 3, x = (CGFloat)(int)((w - total) / 2.0f);
     NSArray *btns = [NSArray arrayWithObjects:self.backBtn, self.playBtn, self.fwdBtn, self.liveBtn, nil];
     for (NSUInteger i = 0; i < 4; i++) {
         UIButton *bt = [btns objectAtIndex:i];
-        bt.frame = CGRectMake(x, 110, bw[i], 40);
+        bt.frame = CGRectMake(x, 86, bw[i], 40);
         x += bw[i] + gap;
     }
 }
@@ -375,13 +505,20 @@ M3U_ROTATE_ANY
     if (animated) [UIView animateWithDuration:0.25 animations:apply completion:done];
     else { apply(); done(YES); }
 
-    self.listTable.frame = CGRectMake(0, 54, pw, b.size.height - 54);
-    CGFloat tabW = (CGFloat)(int)((pw - 24.0f - 12.0f) / 3.0f);
-    for (UIButton *t in self.dayTabs) t.frame = CGRectMake(12 + t.tag * (tabW + 6), 62, tabW, 30);
-    self.epgTable.frame = CGRectMake(0, 102, pw, b.size.height - 102 - 72);
+    self.listTable.frame = CGRectMake(0, 56, pw, b.size.height - 56);
+    self.listEdge.frame = CGRectMake(0, 0, 1, b.size.height);
+    self.epgEdge.frame = CGRectMake(pw - 1.0f, 0, 1, b.size.height);
+    [self.listEdge viewWithTag:5].frame = CGRectMake(1, 0, 1, b.size.height);
+    [self.epgEdge viewWithTag:5].frame = CGRectMake(-1, 0, 1, b.size.height);
+    self.dayStrip.frame = CGRectMake(0, 56, pw, 48);
+    CGFloat boxW = pw - 28.0f, segW = (CGFloat)(int)((boxW - 4.0f) / 3.0f);
+    self.tabBox.frame = CGRectMake(14, 66, boxW, 30);
+    CGFloat inner = boxW - 4.0f;
+    for (UIButton *t in self.dayTabs) t.frame = CGRectMake(t.tag * segW, 0, t.tag == 2 ? inner - 2.0f * segW : segW - 1.0f, 26);
+    self.epgTable.frame = CGRectMake(0, 104, pw, b.size.height - 104 - 68);
     self.epgEmpty.frame = CGRectMake(20, 140, pw - 40, 60);
-    self.pickBtn.frame = CGRectMake(12, b.size.height - 62, pw - 24, 46);
-    self.topBar.frame = CGRectMake(16, 16, 96, 40);
+    self.epgTool.frame = CGRectMake(0, b.size.height - 68, pw, 68);
+    self.pickBtn.frame = CGRectMake(12, b.size.height - 57, pw - 24, 46);
     [self layoutBar];
     self.spinner.center = CGPointMake(b.size.width / 2.0f, b.size.height / 2.0f);
     if (self.pickerView) self.pickerView.center = CGPointMake(b.size.width / 2.0f, b.size.height / 2.0f);
@@ -516,13 +653,6 @@ M3U_ROTATE_ANY
 - (void)nextChannel { [self stepChannel:1]; }
 - (void)prevChannel { [self stepChannel:-1]; }
 
-- (BOOL)gestureRecognizer:(UIGestureRecognizer *)g shouldReceiveTouch:(UITouch *)t
-{
-    for (UIView *v in [NSArray arrayWithObjects:self.listPanel, self.epgPanel, self.bar, self.topBar, self.pickerView, nil])
-        if (v && [t.view isDescendantOfView:v]) return NO;
-    return YES;
-}
-
 #pragma mark - Pasek: oś czasu, etykiety, przyciski
 
 /* Zakres osi czasu dla chwili pos: trwająca audycja, a gdy programu nie ma - ostatnie 2 godziny do „teraz”. */
@@ -548,13 +678,29 @@ M3U_ROTATE_ANY
     self.barTitle.text = self.current.name;
     BOOL live = !self.archiveMode;
     self.barBadge.text = live ? L(@"NA ŻYWO") : L(@"ARCHIWUM");
-    self.barBadge.backgroundColor = live ? [UIColor colorWithRed:0.20f green:0.47f blue:0.94f alpha:1.0f] : [UIColor colorWithRed:0.78f green:0.31f blue:0.16f alpha:1.0f];
+    self.barBadge.backgroundColor = live ? [UIColor colorWithRed:0.16f green:0.40f blue:0.86f alpha:1.0f] : [UIColor colorWithRed:0.78f green:0.31f blue:0.16f alpha:1.0f];
+    self.liveDot.hidden = !live;
+    [self updateLiveDot];
     [self.playBtn setImage:playIcon(!self.paused) forState:UIControlStateNormal];
     self.fwdBtn.alpha = self.archiveMode ? 1.0f : 0.4f;
     self.liveBtn.alpha = (self.archiveMode || self.paused) ? 1.0f : 0.4f;
     [self layoutBar];
     [self reloadEpgPanel];
     [self updateTimeline];
+}
+
+/* Czerwona kropka przy NA ŻYWO miga; animacje znikają po wyjściu z aplikacji, więc dokładamy ją na nowo. */
+- (void)updateLiveDot
+{
+    if (self.archiveMode) { [self.liveDot.layer removeAnimationForKey:@"blink"]; return; }
+    if ([self.liveDot.layer animationForKey:@"blink"]) return;
+    CABasicAnimation *a = [CABasicAnimation animationWithKeyPath:@"opacity"];
+    a.fromValue = [NSNumber numberWithFloat:1.0f];
+    a.toValue = [NSNumber numberWithFloat:0.15f];
+    a.duration = 0.7;
+    a.autoreverses = YES;
+    a.repeatCount = HUGE_VALF;
+    [self.liveDot.layer addAnimation:a forKey:@"blink"];
 }
 
 - (void)updateTimeline
@@ -586,7 +732,7 @@ M3U_ROTATE_ANY
     self.knobLabel.text = M3UEpgClock(pos);
     CGRect tr = [self.slider trackRectForBounds:self.slider.bounds];
     CGRect th = [self.slider thumbRectForBounds:self.slider.bounds trackRect:tr value:self.slider.value];
-    self.knobLabel.frame = CGRectMake(self.slider.frame.origin.x + CGRectGetMidX(th) - 28.0f, 56.0f, 56, 14);
+    self.knobLabel.frame = CGRectMake(self.slider.frame.origin.x + CGRectGetMidX(th) - 28.0f, 27.0f, 56, 17);
 }
 
 - (void)sliderDown { self.dragging = YES; self.sDown = self.slider.value; [self.hideTimer invalidate]; }
@@ -609,6 +755,7 @@ M3U_ROTATE_ANY
 - (void)tickFired
 {
     [self updateTimeline];
+    [self updateLiveDot];
     if (!self.archiveMode || self.paused) return;
     /* archiwum dogoniło „teraz” - to już transmisja na żywo */
     if ([self position] > [self nowEpoch] - 5.0) [self playLive];
@@ -743,8 +890,11 @@ M3U_ROTATE_ANY
     self.epgHeader.text = [NSString stringWithFormat:@"%@: %@", L(@"Program"), self.current.name];
     self.epgEmpty.hidden = [rows count] > 0;
     self.epgEmpty.text = M3UEpgEnabled() ? L(@"Brak programu dla tego kanału.") : L(@"Program TV jest wyłączony w Ustawieniach.");
-    for (UIButton *b in self.dayTabs)
-        b.backgroundColor = (b.tag == self.dayIndex) ? [UIColor colorWithRed:0.20f green:0.47f blue:0.94f alpha:1.0f] : [UIColor colorWithRed:0.12f green:0.20f blue:0.42f alpha:1.0f];
+    for (UIButton *b in self.dayTabs) {
+        int st = (b.tag == self.dayIndex) ? GS_BLUE : GS_GRAY;
+        [b setBackgroundImage:glossImage(st, 26.0f, 0, NO, NO) forState:UIControlStateNormal];
+        [b setBackgroundImage:glossImage(st, 26.0f, 0, NO, YES) forState:UIControlStateHighlighted];
+    }
     [self.epgTable reloadData];
 }
 
@@ -777,16 +927,23 @@ M3U_ROTATE_ANY
     self.pickerOpen = YES;
     CGRect b = self.view.bounds;
     UIView *v = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 340, 332)];
-    v.backgroundColor = [UIColor colorWithRed:0.03f green:0.09f blue:0.24f alpha:0.98f];
-    v.layer.cornerRadius = 14.0f;
+    v.backgroundColor = [UIColor colorWithRed:0.055f green:0.07f blue:0.12f alpha:0.98f];
+    v.layer.cornerRadius = 12.0f;
     v.layer.borderWidth = 2.0f;
-    v.layer.borderColor = [UIColor colorWithRed:0.59f green:0.75f blue:1.0f alpha:0.8f].CGColor;
+    v.layer.borderColor = [UIColor blackColor].CGColor;
+    v.clipsToBounds = YES;
+    UIImageView *hd = [self stripImage:GS_NAV h:48.0f];
+    hd.frame = CGRectMake(0, 0, 340, 48);
+    [v addSubview:hd];
     UILabel *t = [self smallLabel:18.0f color:M3UTextColor() align:NSTextAlignmentCenter];
+    t.textColor = [UIColor whiteColor];
+    t.shadowColor = [UIColor colorWithWhite:0 alpha:0.75f];
+    t.shadowOffset = CGSizeMake(0, -1);
     t.font = [UIFont boldSystemFontOfSize:18.0f];
     t.frame = CGRectMake(10, 10, 320, 28);
     t.text = L(@"Archiwum: wybierz moment");
     [v addSubview:t];
-    UIDatePicker *p = [[UIDatePicker alloc] initWithFrame:CGRectMake(10, 46, 320, 216)];
+    UIDatePicker *p = [[UIDatePicker alloc] initWithFrame:CGRectMake(10, 52, 320, 216)];
     p.datePickerMode = UIDatePickerModeDateAndTime;
     double now = [self nowEpoch];
     p.minimumDate = [NSDate dateWithTimeIntervalSince1970:now - kArchiveDepth];
@@ -794,10 +951,10 @@ M3U_ROTATE_ANY
     p.date = [NSDate dateWithTimeIntervalSince1970:MAX(now - kArchiveDepth, MIN(now - 3600.0, [self position]))];
     [v addSubview:p];
     self.picker = p;
-    UIButton *no = [self barButton:L(@"Anuluj") action:@selector(hidePicker) hi:NO];
+    UIButton *no = [self glossButton:L(@"Anuluj") style:GS_GRAY h:44.0f radius:9.0f border:YES size:16.0f action:@selector(hidePicker)];
     no.frame = CGRectMake(14, 274, 148, 44);
     [v addSubview:no];
-    UIButton *go = [self barButton:L(@"Odtwórz") action:@selector(pickerGo) hi:YES];
+    UIButton *go = [self glossButton:L(@"Odtwórz") style:GS_BLUE h:44.0f radius:9.0f border:YES size:16.0f action:@selector(pickerGo)];
     go.frame = CGRectMake(178, 274, 148, 44);
     [v addSubview:go];
     v.center = CGPointMake(b.size.width / 2.0f, b.size.height / 2.0f);
@@ -850,12 +1007,22 @@ M3U_ROTATE_ANY
         cell.textLabel.font = [UIFont boldSystemFontOfSize:17.0f];
         cell.detailTextLabel.font = [UIFont systemFontOfSize:13.0f];
         cell.selectionStyle = UITableViewCellSelectionStyleGray;
-        UIView *track = [[UIView alloc] initWithFrame:CGRectZero];
+        cell.textLabel.shadowOffset = CGSizeMake(0, -1);
+        cell.textLabel.shadowColor = [UIColor colorWithWhite:0 alpha:0.75f];
+        UIView *hl = [[UIView alloc] initWithFrame:CGRectMake(0, kRow - 3.0f, 600, 1)];       /* jasna kreska pod czarnym separatorem */
+        hl.backgroundColor = [UIColor colorWithWhite:1.0f alpha:0.11f];
+        hl.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+        [cell.contentView addSubview:hl];
+        UIView *track = [[UIView alloc] initWithFrame:CGRectZero];            /* pasek postępu audycji jak suwak iOS 6 */
         track.tag = 77;
-        track.backgroundColor = [UIColor colorWithWhite:1.0f alpha:0.22f];
+        track.backgroundColor = [UIColor colorWithRed:0.03f green:0.05f blue:0.12f alpha:1.0f];
+        track.layer.cornerRadius = 4.0f;
+        track.layer.borderWidth = 1.0f;
+        track.layer.borderColor = [UIColor colorWithRed:0.59f green:0.69f blue:0.90f alpha:1.0f].CGColor;
+        track.clipsToBounds = YES;
         UIView *fill = [[UIView alloc] initWithFrame:CGRectZero];
         fill.tag = 78;
-        fill.backgroundColor = M3UAccentColor();
+        fill.backgroundColor = [UIColor colorWithRed:0.59f green:0.78f blue:1.0f alpha:1.0f];
         [track addSubview:fill];
         [cell.contentView addSubview:track];
     }
@@ -880,10 +1047,10 @@ M3U_ROTATE_ANY
         if (past) cell.detailTextLabel.textColor = [UIColor colorWithRed:0.51f green:0.75f blue:1.0f alpha:1.0f];
         if (cur) {
             track.hidden = NO;
-            track.frame = CGRectMake(16, kRow - 18, tv.bounds.size.width - 32, 3);
+            track.frame = CGRectMake(16, kRow - 17, tv.bounds.size.width - 32, 8);
             UIView *fill = [track viewWithTag:78];
             float pr = t > s ? (float)((now - s) / (t - s)) : 0.0f;
-            fill.frame = CGRectMake(0, 0, (CGFloat)(int)(track.bounds.size.width * MIN(1.0f, MAX(0.0f, pr))), 3);
+            fill.frame = CGRectMake(0, 0, (CGFloat)(int)(track.bounds.size.width * MIN(1.0f, MAX(0.0f, pr))), 8);
         }
     }
     return cell;
@@ -899,7 +1066,8 @@ M3U_ROTATE_ANY
 
 - (void)tableView:(UITableView *)tv willDisplayCell:(UITableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)ip
 {
-    cell.backgroundColor = [self rowIsOn:tv at:ip] ? [UIColor colorWithRed:0.20f green:0.47f blue:0.94f alpha:0.78f] : [UIColor clearColor];
+    cell.backgroundColor = [UIColor clearColor];
+    cell.backgroundView = [self rowIsOn:tv at:ip] ? [[UIImageView alloc] initWithImage:glossImage(GS_SEL, kRow, 0, NO, NO)] : nil;       /* zaznaczony wiersz: szklany niebieski pas */
 }
 
 - (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip
