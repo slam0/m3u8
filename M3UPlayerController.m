@@ -102,25 +102,98 @@ static UIImage *glossImage(int st, CGFloat h, CGFloat r, BOOL border, BOOL press
     return img;
 }
 
-/* Ikona kalendarza (wybór momentu w archiwum), rysowana kodem. */
+/* Ikona kalendarza (wybór momentu w archiwum): jednokolorowa, jak ikony paska narzędzi iOS 6, z dzisiejszym dniem. */
 static UIImage *calendarIcon(void)
 {
-    UIGraphicsBeginImageContextWithOptions(CGSizeMake(24, 24), NO, [[UIScreen mainScreen] scale]);
+    CGFloat sz = 26.0f;
+    NSInteger day = [[NSCalendar currentCalendar] components:NSDayCalendarUnit fromDate:[NSDate date]].day;
+    UIGraphicsBeginImageContextWithOptions(CGSizeMake(sz, sz), NO, [[UIScreen mainScreen] scale]);
     CGContextRef c = UIGraphicsGetCurrentContext();
-    for (int pass = 0; pass < 2; pass++) {
-        CGFloat dy = pass == 0 ? 1.0f : 0.0f;
-        CGRect r = CGRectMake(3, 4 + dy, 18, 17);
-        if (pass == 0) { CGContextSetRGBFillColor(c, 0, 0, 0, 0.6f); [[UIBezierPath bezierPathWithRoundedRect:r cornerRadius:2] fill]; continue; }
-        CGContextSetRGBFillColor(c, 0.94f, 0.96f, 0.99f, 1);
-        [[UIBezierPath bezierPathWithRoundedRect:r cornerRadius:2] fill];
-        CGContextSetRGBFillColor(c, 0.80f, 0.27f, 0.20f, 1);
-        CGContextFillRect(c, CGRectMake(3, 4, 18, 5));
-        CGContextSetRGBFillColor(c, 0.27f, 0.31f, 0.43f, 1);
-        for (int i = 0; i < 3; i++) for (int j = 0; j < 2; j++) CGContextFillRect(c, CGRectMake(5.5f + i * 5, 11.5f + j * 4.5f, 3, 2.5f));
-    }
+    UIBezierPath *shape = [UIBezierPath bezierPathWithRoundedRect:CGRectMake(2, 4, 22, 20.6f) cornerRadius:4];
+    [shape appendPath:[UIBezierPath bezierPathWithRoundedRect:CGRectMake(7, 1, 3, 5.5f) cornerRadius:1.5f]];
+    [shape appendPath:[UIBezierPath bezierPathWithRoundedRect:CGRectMake(16, 1, 3, 5.5f) cornerRadius:1.5f]];
+    shape.usesEvenOddFillRule = NO;
+    CGContextSaveGState(c);                                       /* cień pod ikoną */
+    CGContextTranslateCTM(c, 0, 1);
+    CGContextSetRGBFillColor(c, 0, 0, 0, 0.85f);
+    [shape fill];
+    CGContextRestoreGState(c);
+    CGContextSaveGState(c);                                       /* biały gradient */
+    [shape addClip];
+    CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB();
+    CGFloat comps[8] = { 0.99f, 0.99f, 1.0f, 1.0f, 0.67f, 0.69f, 0.75f, 1.0f };
+    CGGradientRef g = CGGradientCreateWithColorComponents(cs, comps, NULL, 2);
+    CGContextDrawLinearGradient(c, g, CGPointMake(0, 1), CGPointMake(0, 25), 0);
+    CGGradientRelease(g);
+    CGColorSpaceRelease(cs);
+    CGContextRestoreGState(c);
+    CGContextSetBlendMode(c, kCGBlendModeClear);                  /* wycięcie: kreska pod nagłówkiem i numer dnia */
+    CGContextFillRect(c, CGRectMake(2, 9.6f, 22, 0.9f));
+    NSString *num = [NSString stringWithFormat:@"%d", (int)day];
+    UIFont *f = [UIFont boldSystemFontOfSize:11.5f];
+    CGSize ts = [num sizeWithFont:f];
+    [num drawAtPoint:CGPointMake(13 - ts.width / 2.0f, 11.0f + (13.0f - ts.height) / 2.0f) withFont:f];
     UIImage *i = UIGraphicsGetImageFromCurrentImageContext();
     UIGraphicsEndImageContext();
     return i;
+}
+
+/* Segment przycisku jak w UISegmentedControl: pos 0 lewy, 1 środkowy, 2 prawy (zaokrąglone tylko zewnętrzne rogi). */
+static UIImage *segImage(int pos, BOOL pressed)
+{
+    static NSMutableDictionary *cache;
+    if (!cache) cache = [[NSMutableDictionary alloc] init];
+    NSString *key = [NSString stringWithFormat:@"%d-%d", pos, pressed];
+    UIImage *hit = [cache objectForKey:key];
+    if (hit) return hit;
+    CGFloat t[4], b[4], gl, r = 6.0f, w = 2.0f * r + 4.0f, h = 30.0f;
+    gsColors(GS_GRAY, t, b, &gl);
+    if (pressed) for (int i = 0; i < 3; i++) { t[i] *= 0.7f; b[i] *= 0.7f; }
+    UIGraphicsBeginImageContextWithOptions(CGSizeMake(w, h), NO, [[UIScreen mainScreen] scale]);
+    CGContextRef c = UIGraphicsGetCurrentContext();
+    CGRect rc = CGRectMake(0, 0, w, h);
+    UIRectCorner corners = pos == 0 ? (UIRectCornerTopLeft | UIRectCornerBottomLeft) : (pos == 2 ? (UIRectCornerTopRight | UIRectCornerBottomRight) : (UIRectCorner)0);
+    UIBezierPath *clip = [UIBezierPath bezierPathWithRoundedRect:rc byRoundingCorners:corners cornerRadii:CGSizeMake(r, r)];
+    CGContextSaveGState(c);
+    [clip addClip];
+    CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB();
+    CGFloat comps[8] = { t[0], t[1], t[2], 1, b[0], b[1], b[2], 1 };
+    CGGradientRef g = CGGradientCreateWithColorComponents(cs, comps, NULL, 2);
+    CGContextDrawLinearGradient(c, g, CGPointMake(0, 0), CGPointMake(0, h), 0);
+    CGGradientRelease(g);
+    CGColorSpaceRelease(cs);
+    CGContextSetRGBFillColor(c, 1, 1, 1, pressed ? gl * 0.5f : gl);
+    CGContextFillRect(c, CGRectMake(0, 0, w, h / 2.0f));
+    CGContextRestoreGState(c);
+    CGContextSetRGBStrokeColor(c, 0.03f, 0.05f, 0.11f, 1);
+    CGContextSetLineWidth(c, 1.0f);
+    [[UIBezierPath bezierPathWithRoundedRect:CGRectInset(rc, 0.5f, 0.5f) byRoundingCorners:corners cornerRadii:CGSizeMake(r, r)] stroke];
+    UIImage *img = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    CGFloat cap = w / 2.0f - 0.5f;
+    img = [img resizableImageWithCapInsets:UIEdgeInsetsMake(0, cap, 0, cap)];
+    [cache setObject:img forKey:key];
+    return img;
+}
+
+/* Dolny pasek na telefonie: czarny, półprzezroczysty jak UIToolbar, z jasną linią u góry. */
+static UIImage *toolbarImage(void)
+{
+    UIGraphicsBeginImageContextWithOptions(CGSizeMake(8, 112), NO, [[UIScreen mainScreen] scale]);
+    CGContextRef c = UIGraphicsGetCurrentContext();
+    CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB();
+    CGFloat comps[8] = { 0.235f, 0.243f, 0.263f, 0.94f, 0.047f, 0.047f, 0.059f, 0.97f };
+    CGGradientRef g = CGGradientCreateWithColorComponents(cs, comps, NULL, 2);
+    CGContextDrawLinearGradient(c, g, CGPointMake(0, 0), CGPointMake(0, 112), 0);
+    CGGradientRelease(g);
+    CGColorSpaceRelease(cs);
+    CGContextSetRGBFillColor(c, 0, 0, 0, 1);
+    CGContextFillRect(c, CGRectMake(0, 0, 8, 1));
+    CGContextSetRGBFillColor(c, 0.67f, 0.68f, 0.73f, 0.47f);
+    CGContextFillRect(c, CGRectMake(0, 1, 8, 1));
+    UIImage *i = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    return [i resizableImageWithCapInsets:UIEdgeInsetsMake(3, 3, 3, 3)];
 }
 
 /* Adres archiwum: ten sam adres kanału z dopiskiem utc=<początek>&lutc=<teraz> (serwer sam przelicza przesunięcie). */
@@ -148,6 +221,7 @@ static NSString *dateTimeText(double t)
 @property (nonatomic, strong) UISlider *slider;
 @property (nonatomic, strong) UIImageView *topBg, *barBg;
 @property (nonatomic, strong) UIButton *calBtn;
+@property (nonatomic) NSInteger calDay;
 @property (nonatomic, strong) UIButton *clockChip;           /* godzina w Moskwie (tylko kanały rosyjskie) */
 @property (nonatomic, strong) MPVolumeView *routeView;       /* przycisk AirPlay (system pokazuje go tylko, gdy jest odbiornik) */
 @property (nonatomic, strong) UIButton *closeButton, *backBtn, *fwdBtn, *playBtn, *liveBtn, *pickBtn;
@@ -425,7 +499,7 @@ M3U_ROTATE_ANY
 
     /* dolny pasek: audycja, oś czasu, przyciski */
     self.bar = [[UIView alloc] initWithFrame:CGRectZero];
-    self.barBg = [self stripImage:GS_DARK h:132.0f];     /* rozciągany do wysokości paska */
+    self.barBg = isPhone() ? [[UIImageView alloc] initWithImage:toolbarImage()] : [self stripImage:GS_DARK h:132.0f];     /* rozciągany do wysokości paska */
     self.barBg.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     [self.bar addSubview:self.barBg];
     self.barProg = [self smallLabel:15.0f color:[UIColor whiteColor] align:NSTextAlignmentLeft];
@@ -446,15 +520,24 @@ M3U_ROTATE_ANY
     [self.slider addTarget:self action:@selector(sliderDown) forControlEvents:UIControlEventTouchDown];
     [self.slider addTarget:self action:@selector(sliderMoved) forControlEvents:UIControlEventValueChanged];
     [self.slider addTarget:self action:@selector(sliderUp) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside | UIControlEventTouchCancel];
-    CGFloat bhh = isPhone() ? 32.0f : 40.0f, bfs = isPhone() ? 12.0f : 15.0f;
+    CGFloat bhh = isPhone() ? 30.0f : 40.0f, bfs = isPhone() ? 12.0f : 15.0f, brd = isPhone() ? 6.0f : 8.0f;
     self.backBtn = [self glossButton:L(@"-10 min") style:GS_GRAY h:bhh radius:8.0f border:YES size:bfs action:@selector(skipBack)];
     self.fwdBtn = [self glossButton:L(@"+10 min") style:GS_GRAY h:bhh radius:8.0f border:YES size:bfs action:@selector(skipForward)];
-    self.liveBtn = [self glossButton:L(@"Na żywo") style:GS_BLUE h:bhh radius:8.0f border:YES size:bfs action:@selector(goLive)];
+    self.liveBtn = [self glossButton:L(@"Na żywo") style:GS_BLUE h:bhh radius:brd border:YES size:bfs action:@selector(goLive)];
     self.playBtn = [self glossButton:nil style:GS_GRAY h:bhh radius:8.0f border:YES size:bfs action:@selector(togglePause)];
     [self.playBtn setImage:playIcon(YES) forState:UIControlStateNormal];
     self.calBtn = [self glossButton:nil style:GS_GRAY h:bhh radius:8.0f border:YES size:bfs action:@selector(showPicker)];   /* telefon: wybór momentu w archiwum */
     [self.calBtn setImage:calendarIcon() forState:UIControlStateNormal];
     self.calBtn.hidden = !isPhone();
+    if (isPhone()) {                                              /* segmentowy przycisk -10 | pauza | +10 i kalendarz bez ramki, jak w UIKit */
+        UIButton *segs[3] = { self.backBtn, self.playBtn, self.fwdBtn };
+        for (int k = 0; k < 3; k++) {
+            [segs[k] setBackgroundImage:segImage(k, NO) forState:UIControlStateNormal];
+            [segs[k] setBackgroundImage:segImage(k, YES) forState:UIControlStateHighlighted];
+        }
+        [self.calBtn setBackgroundImage:nil forState:UIControlStateNormal];
+        [self.calBtn setBackgroundImage:nil forState:UIControlStateHighlighted];
+    }
     if (M3UThemeIndex() != 0) {
         CGFloat ta[4], tb[4];
         M3UPlayerPalette(1, ta, tb);
@@ -549,31 +632,31 @@ M3U_ROTATE_ANY
     /* dolny pasek na całą szerokość */
     self.bar.frame = CGRectMake(0, b.size.height - bh, w, bh);
     self.barBg.frame = self.bar.bounds;
-    CGFloat sideM = phone ? 44.0f : 74.0f, cy = phone ? 42.0f : 60.0f, bt = phone ? bh - 42.0f : 86.0f, bhh = phone ? 32.0f : 40.0f;
+    CGFloat sideM = phone ? 44.0f : 74.0f, cy = phone ? 42.0f : 60.0f, bt = phone ? bh - 41.0f : 86.0f, bhh = phone ? 30.0f : 40.0f;
     self.barProg.frame = CGRectMake(phone ? 12 : 18, phone ? 6 : 8, w - (phone ? 24 : 36), 20);
     self.loLabel.frame = CGRectMake(phone ? 6 : 14, cy - 10.0f, sideM - 6.0f, 20);
     self.hiLabel.frame = CGRectMake(w - sideM, cy - 10.0f, sideM - 6.0f, 20);
     self.slider.frame = CGRectMake(sideM, cy - 15.0f, w - 2.0f * sideM, 30);
-    CGFloat bw[5], gap;
+    CGFloat bw[5], gp[5] = { 0, 0, 0, 0, 0 };
     NSArray *btns;
     if (phone) {
-        gap = portrait ? 6.0f : 8.0f;
-        CGFloat pw[5] = { 54, 58, 54, 40, 72 }, lw[5] = { 64, 70, 64, 44, 84 };
+        CGFloat pw[5] = { 60, 66, 60, 40, 64 }, lw[5] = { 76, 84, 76, 44, 84 };
         for (int i = 0; i < 5; i++) bw[i] = portrait ? pw[i] : lw[i];
+        gp[0] = -1.0f; gp[1] = -1.0f; gp[2] = portrait ? 10.0f : 16.0f; gp[3] = portrait ? 8.0f : 16.0f;      /* trzy segmenty stykają się */
         btns = [NSArray arrayWithObjects:self.backBtn, self.playBtn, self.fwdBtn, self.calBtn, self.liveBtn, nil];
     } else {
-        gap = 12.0f;
+        for (int i = 0; i < 4; i++) gp[i] = 12.0f;
         bw[0] = 82; bw[1] = 90; bw[2] = 82; bw[3] = 110; bw[4] = 0;
         btns = [NSArray arrayWithObjects:self.backBtn, self.playBtn, self.fwdBtn, self.liveBtn, nil];
     }
     NSUInteger n = [btns count];
-    CGFloat total = gap * (CGFloat)(n - 1);
-    for (NSUInteger i = 0; i < n; i++) total += bw[i];
+    CGFloat total = 0;
+    for (NSUInteger i = 0; i < n; i++) total += bw[i] + (i + 1 < n ? gp[i] : 0);
     CGFloat x = (CGFloat)(int)((w - total) / 2.0f), bt0 = bt;
     for (NSUInteger i = 0; i < n; i++) {
         UIButton *bt = [btns objectAtIndex:i];
         bt.frame = CGRectMake(x, bt0, bw[i], bhh);
-        x += bw[i] + gap;
+        x += bw[i] + gp[i];
     }
 }
 
@@ -864,6 +947,8 @@ M3U_ROTATE_ANY
 /* Znaczek z godziną w Moskwie: tylko dla kanałów rosyjskich. */
 - (void)updateClock
 {
+    NSInteger today = [[NSCalendar currentCalendar] components:NSDayCalendarUnit fromDate:[NSDate date]].day;
+    if (today != self.calDay) { self.calDay = today; [self.calBtn setImage:calendarIcon() forState:UIControlStateNormal]; }
     BOOL show = self.current && isRussianChannel(self.current);
     self.clockChip.hidden = !show;
     if (show) [self.clockChip setTitle:[NSString stringWithFormat:@"%@  %@", L(@"Moskwa"), moscowTime()] forState:UIControlStateNormal];
