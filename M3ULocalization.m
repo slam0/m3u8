@@ -5,6 +5,12 @@ static NSString *const kLangKey = @"language";
 
 /* { polski, angielski, rosyjski } */
 static const char *const kRows[][3] = {
+    { "Moskwa",
+      "Moscow",
+      "Москва" },
+    { "Wznów ostatni kanał po uruchomieniu",
+      "Resume last channel on launch",
+      "Возобновлять последний канал при запуске" },
     { "Wybierz język",
       "Choose language",
       "Выберите язык" },

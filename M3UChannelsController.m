@@ -38,6 +38,8 @@ static const CGFloat kGridMonogram = 76.0f;
 @property (nonatomic, strong) M3UEntry *actionEntry;
 @property (nonatomic, strong) MPMoviePlayerViewController *player;
 @property (nonatomic, assign) BOOL loading;
+@property (nonatomic, copy) NSString *lastKey;          /* adres albo plik playlisty (do wznawiania) */
+@property (nonatomic, strong) M3UEntry *resumeEntry;
 @end
 
 @implementation M3UChannelsController
@@ -49,6 +51,7 @@ M3U_ROTATE_ANY
     self = [super initWithNibName:nil bundle:nil];
     if (self) {
         self.playlist = playlist;
+        self.lastKey = [playlist objectForKey:@"url"] ?: [playlist objectForKey:@"file"];
         self.title = [playlist objectForKey:@"name"];
     }
     return self;
@@ -259,6 +262,25 @@ M3U_ROTATE_ANY
     self.entries = list;
     self.message = [list count] ? nil : L(@"Nie znalazłem w tej liście żadnych kanałów.");
     [self rebuild];
+    if ([self.resumeURL length]) {                                   /* wznawianie: znajdź ostatnio oglądany kanał */
+        for (M3UEntry *e in list) if ([e.url isEqualToString:self.resumeURL]) { self.resumeEntry = e; break; }
+        self.resumeURL = nil;
+        dispatch_async(dispatch_get_main_queue(), ^{ [self attemptResume]; });
+    }
+}
+
+- (void)attemptResume
+{
+    if (!self.resumeEntry || !self.view.window || self.presentedViewController) return;
+    M3UEntry *e = self.resumeEntry;
+    self.resumeEntry = nil;
+    [self play:e];
+}
+
+- (void)viewDidAppear:(BOOL)animated
+{
+    [super viewDidAppear:animated];
+    [self attemptResume];
 }
 
 - (void)loadFavorites
@@ -556,9 +578,11 @@ M3U_ROTATE_ANY
         vc = [[M3UChannelsController alloc] initWithFavorites];
     } else if (r == 1) {
         vc = [[M3UChannelsController alloc] initWithEntries:self.entries group:nil title:L(@"Wszystkie kanały")];
+        ((M3UChannelsController *)vc).lastKey = self.lastKey;
     } else {
         NSString *g = [self.catNames objectAtIndex:(NSUInteger)(r - 2)];
         vc = [[M3UChannelsController alloc] initWithEntries:self.entries group:g title:[self categoryName:r]];
+        ((M3UChannelsController *)vc).lastKey = self.lastKey;
     }
     M3UBreadcrumb([NSString stringWithFormat:@"otwieram kategorię: %@", [self categoryName:r]]);
     [self.navigationController pushViewController:vc animated:YES];
@@ -714,6 +738,7 @@ M3U_ROTATE_ANY
 
 - (void)play:(M3UEntry *)e
 {
+    [[NSUserDefaults standardUserDefaults] setObject:(self.lastKey ?: @"") forKey:@"last_playlist"];
     NSURL *u = [NSURL URLWithString:e.url];
     NSString *scheme = [[u scheme] lowercaseString];
     if (!u || !([scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"])) {

@@ -39,7 +39,7 @@ M3U_ROTATE_ANY
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s
 {
-    static const int rows[6] = { 3, 4, 1, 6, 2, 2 };
+    static const int rows[6] = { 3, 4, 2, 6, 2, 2 };
     return rows[s];
 }
 
@@ -83,6 +83,15 @@ M3U_ROTATE_ANY
             c.detailTextLabel.text = [NSString stringWithFormat:@"%lu", (unsigned long)M3UEpgChannelCount()];
             c.selectionStyle = UITableViewCellSelectionStyleNone;
         }
+    } else if (ip.section == 2 && ip.row == 1) {
+        c.textLabel.text = L(@"Wznów ostatni kanał po uruchomieniu");
+        c.textLabel.numberOfLines = 2;
+        UISwitch *sw = [[UISwitch alloc] initWithFrame:CGRectZero];
+        NSUserDefaults *ud = [NSUserDefaults standardUserDefaults];
+        sw.on = [ud objectForKey:@"resume_last"] ? [ud boolForKey:@"resume_last"] : YES;
+        [sw addTarget:self action:@selector(resumeSwitched:) forControlEvents:UIControlEventValueChanged];
+        c.accessoryView = sw;
+        c.selectionStyle = UITableViewCellSelectionStyleNone;
     } else if (ip.section == 2) {
         c.textLabel.text = L(@"Kafelki zamiast listy");
         UISwitch *sw = [[UISwitch alloc] initWithFrame:CGRectZero];
@@ -153,6 +162,11 @@ M3U_ROTATE_ANY
     M3UEpgSetURL([[a textFieldAtIndex:0] text]);
     M3UEpgRefresh(YES);
     [self.tableView reloadData];
+}
+
+- (void)resumeSwitched:(UISwitch *)sw
+{
+    [[NSUserDefaults standardUserDefaults] setBool:sw.on forKey:@"resume_last"];
 }
 
 - (void)layoutSwitched:(UISwitch *)sw

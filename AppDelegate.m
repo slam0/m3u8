@@ -23,7 +23,7 @@ static NSString *gLaunchLanguage;                 /* język z chwili startu: po 
     M3UDiagInstall();
     gLaunchLanguage = M3UCurrentLanguage();
     NSString *crash = M3UDiagCrashReportIfAny();
-    M3UBreadcrumb(@"start aplikacji 1.17.0");
+    M3UBreadcrumb(@"start aplikacji 1.18.0");
     M3UDiagMarkRunning(YES);
     M3UThemeApply();
     [application setStatusBarStyle:UIStatusBarStyleBlackOpaque];
@@ -33,6 +33,8 @@ static NSString *gLaunchLanguage;                 /* język z chwili startu: po 
     if ([M3USetupController needsSetup]) {
         /* ekran konfiguracji tylko przy pierwszym uruchomieniu (bez zapisanych playlist) */
         dispatch_async(dispatch_get_main_queue(), ^{ [self showSetup]; });
+    } else {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self resumeLastChannel]; });
     }
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(languageChanged) name:M3ULanguageDidChange object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(themeChanged) name:M3UThemeDidChange object:nil];
@@ -68,6 +70,23 @@ static NSString *gLaunchLanguage;                 /* język z chwili startu: po 
         M3UThemeApply();
         self.window.rootViewController = [self buildRootShowingSettings:YES];
     });
+}
+
+/* Wznawianie: po starcie od razu wracamy do ostatnio oglądanego kanału (można wyłączyć w Ustawieniach). */
+- (void)resumeLastChannel
+{
+    NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
+    if ([d objectForKey:@"resume_last"] && ![d boolForKey:@"resume_last"]) return;
+    NSString *key = [d stringForKey:@"last_playlist"], *ch = [d stringForKey:@"last_channel_url"];
+    if (![key length] || ![ch length]) return;
+    for (NSDictionary *pl in M3UPlaylists()) {
+        NSString *k = [pl objectForKey:@"url"] ?: [pl objectForKey:@"file"];
+        if (![k isEqualToString:key]) continue;
+        M3UChannelsController *vc = [[M3UChannelsController alloc] initWithPlaylist:pl];
+        vc.resumeURL = ch;
+        [self.nav pushViewController:vc animated:NO];
+        return;
+    }
 }
 
 - (void)showSetup

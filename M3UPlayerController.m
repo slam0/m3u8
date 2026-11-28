@@ -148,6 +148,8 @@ static NSString *dateTimeText(double t)
 @property (nonatomic, strong) UISlider *slider;
 @property (nonatomic, strong) UIImageView *topBg, *barBg;
 @property (nonatomic, strong) UIButton *calBtn;
+@property (nonatomic, strong) UIButton *clockChip;           /* godzina w Moskwie (tylko kanały rosyjskie) */
+@property (nonatomic, strong) MPVolumeView *routeView;       /* przycisk AirPlay (system pokazuje go tylko, gdy jest odbiornik) */
 @property (nonatomic, strong) UIButton *closeButton, *backBtn, *fwdBtn, *playBtn, *liveBtn, *pickBtn;
 @property (nonatomic, strong) NSArray *dayTabs;
 @property (nonatomic, strong) UIActivityIndicatorView *spinner;
@@ -160,6 +162,29 @@ static NSString *dateTimeText(double t)
 @property (nonatomic, strong) UIView *pickerView;
 @property (nonatomic, strong) UIDatePicker *picker;
 @end
+
+/* Kanał rosyjski: cyrylica w nazwie bez liter ukraińskich i białoruskich, albo grupa z nazwą Rosji. */
+static BOOL isRussianChannel(M3UEntry *e)
+{
+    NSString *n = e.name ?: @"";
+    BOOL cyr = NO;
+    for (NSUInteger i = 0; i < [n length]; i++) {
+        unichar c = [n characterAtIndex:i];
+        if (c == 0x0456 || c == 0x0457 || c == 0x0454 || c == 0x0491 || c == 0x0406 || c == 0x0407 || c == 0x0404 || c == 0x0490 || c == 0x045E || c == 0x040E) return NO;
+        if (c >= 0x0400 && c <= 0x04FF) cyr = YES;
+    }
+    if (cyr) return YES;
+    NSString *g = [(e.group ?: @"") lowercaseString];
+    return [g rangeOfString:@"росси"].location != NSNotFound || [g rangeOfString:@"russia"].location != NSNotFound || [g rangeOfString:@"rosja"].location != NSNotFound;
+}
+
+/* Czas w Moskwie: stałe UTC+3 (stare dane stref w iOS 6 nadal dodają Moskwie czas letni). */
+static NSString *moscowTime(void)
+{
+    static NSDateFormatter *f;
+    if (!f) { f = [[NSDateFormatter alloc] init]; f.dateFormat = @"HH:mm"; f.timeZone = [NSTimeZone timeZoneForSecondsFromGMT:3 * 3600]; }
+    return [f stringFromDate:[NSDate date]];
+}
 
 @implementation M3UPlayerController
 
@@ -439,6 +464,16 @@ M3U_ROTATE_ANY
         [self.bar addSubview:v];
     [self.view addSubview:self.bar];
 
+    self.clockChip = [self glossButton:@"" style:GS_GRAY h:30.0f radius:8.0f border:YES size:13.0f action:@selector(noop)];
+    self.clockChip.userInteractionEnabled = NO;
+    self.clockChip.hidden = YES;
+    [self.view addSubview:self.clockChip];
+    mp.allowsAirPlay = YES;
+    self.routeView = [[MPVolumeView alloc] initWithFrame:CGRectMake(0, 0, 50, 30)];
+    self.routeView.showsVolumeSlider = NO;
+    self.routeView.showsRouteButton = YES;
+    [self.view addSubview:self.routeView];
+
     self.toast = [self smallLabel:16.0f color:M3UTextColor() align:NSTextAlignmentCenter];
     self.toast.backgroundColor = [UIColor colorWithWhite:0 alpha:0.75f];
     self.toast.numberOfLines = 2;
@@ -490,6 +525,12 @@ M3U_ROTATE_ANY
     CGFloat topH = phone ? 44.0f : 48.0f, bh = phone ? (portrait ? 112.0f : 100.0f) : 132.0f;
     /* górny pasek na całą szerokość */
     self.topBar.frame = CGRectMake(0, 0, w, topH);
+    {   /* godzina kanału i AirPlay: prawy górny róg obrazu, pod górnym paskiem */
+        CGFloat cy0 = topH + 8.0f, cwid = phone ? 104.0f : 120.0f, rx = w - 8.0f;
+        self.clockChip.titleLabel.font = [UIFont boldSystemFontOfSize:phone ? 13.0f : 15.0f];
+        if (!self.clockChip.hidden) { self.clockChip.frame = CGRectMake(rx - cwid, cy0, cwid, 30); rx -= cwid + 8.0f; }
+        self.routeView.frame = CGRectMake(rx - 50.0f, cy0, 50, 30);
+    }
     self.topBg.frame = self.topBar.bounds;
     self.closeButton.frame = phone ? CGRectMake(6, 7, 66, 30) : CGRectMake(8, 8, 92, 32);
     BOOL live = !self.archiveMode;
@@ -734,6 +775,8 @@ M3U_ROTATE_ANY
 - (void)refreshAll
 {
     self.barTitle.text = self.current.name;
+    if ([self.current.url length]) [[NSUserDefaults standardUserDefaults] setObject:self.current.url forKey:@"last_channel_url"];
+    [self updateClock];
     BOOL live = !self.archiveMode;
     self.barBadge.text = live ? L(@"NA ŻYWO") : L(@"ARCHIWUM");
     self.barBadge.backgroundColor = live ? [UIColor colorWithRed:0.16f green:0.40f blue:0.86f alpha:1.0f] : [UIColor colorWithRed:0.78f green:0.31f blue:0.16f alpha:1.0f];
@@ -816,8 +859,19 @@ M3U_ROTATE_ANY
     [self playArchiveFrom:t];                      /* blisko „teraz” przechodzi na żywo */
 }
 
+- (void)noop {}
+
+/* Znaczek z godziną w Moskwie: tylko dla kanałów rosyjskich. */
+- (void)updateClock
+{
+    BOOL show = self.current && isRussianChannel(self.current);
+    self.clockChip.hidden = !show;
+    if (show) [self.clockChip setTitle:[NSString stringWithFormat:@"%@  %@", L(@"Moskwa"), moscowTime()] forState:UIControlStateNormal];
+}
+
 - (void)tickFired
 {
+    [self updateClock];
     [self updateTimeline];
     [self updateLiveDot];
     if (!self.archiveMode || self.paused) return;
@@ -831,6 +885,9 @@ M3U_ROTATE_ANY
 {
     self.topBar.alpha = a;
     self.bar.alpha = a;
+    self.clockChip.alpha = a;
+    self.routeView.alpha = a;
+    self.routeView.userInteractionEnabled = (a > 0.5f);
     self.topBar.userInteractionEnabled = (a > 0.5f);
     self.bar.userInteractionEnabled = (a > 0.5f);
 }
