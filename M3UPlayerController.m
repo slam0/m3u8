@@ -637,7 +637,8 @@ M3U_ROTATE_ANY
     self.loLabel.frame = CGRectMake(phone ? 6 : 14, cy - 10.0f, sideM - 6.0f, 20);
     self.hiLabel.frame = CGRectMake(w - sideM, cy - 10.0f, sideM - 6.0f, 20);
     self.slider.frame = CGRectMake(sideM, cy - 15.0f, w - 2.0f * sideM, 30);
-    CGFloat bw[5], gp[5] = { 0, 0, 0, 0, 0 };
+    CGFloat bw[5], gp[5];
+    gp[0] = 0; gp[1] = 0; gp[2] = 0; gp[3] = 0; gp[4] = 0;
     NSArray *btns;
     if (phone) {
         CGFloat pw[5] = { 60, 66, 60, 40, 64 }, lw[5] = { 76, 84, 76, 44, 84 };
@@ -645,7 +646,7 @@ M3U_ROTATE_ANY
         gp[0] = -1.0f; gp[1] = -1.0f; gp[2] = portrait ? 10.0f : 16.0f; gp[3] = portrait ? 8.0f : 16.0f;      /* trzy segmenty stykają się */
         btns = [NSArray arrayWithObjects:self.backBtn, self.playBtn, self.fwdBtn, self.calBtn, self.liveBtn, nil];
     } else {
-        for (int i = 0; i < 4; i++) gp[i] = 12.0f;
+        gp[0] = 12.0f; gp[1] = 12.0f; gp[2] = 12.0f; gp[3] = 12.0f;                  /* (bez pętli: kompilator zamieniłby ją na memset_pattern16, którego nie ma w iOS 6) */
         bw[0] = 82; bw[1] = 90; bw[2] = 82; bw[3] = 110; bw[4] = 0;
         btns = [NSArray arrayWithObjects:self.backBtn, self.playBtn, self.fwdBtn, self.liveBtn, nil];
     }
